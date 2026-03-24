@@ -179,9 +179,31 @@ class MinConsecutiveFreeDays(Rule):
     def add_constraints(
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
-        # Soft constraint: hard to model perfectly in CP-SAT without complex encoding
-        # The solver handles this indirectly through other rest constraints
-        pass
+        config = self.get_config(ctx)
+        min_days = config["params"]["min_days"]
+
+        if min_days < 2:
+            return
+
+        for emp_id in v.employee_ids:
+            for i in range(len(v.dates) - 2):
+                window = v.dates[i : i + 3]
+                all_consecutive = all(
+                    _next_date(window[j]) == window[j + 1]
+                    for j in range(len(window) - 1)
+                )
+                if not all_consecutive:
+                    continue
+
+                # Forbid work-free-work pattern (isolated single free day)
+                # works[A] + (1 - works[B]) + works[C] <= 2
+                # → works[A] - works[B] + works[C] <= 1
+                model.Add(
+                    v.works[emp_id][window[0]]
+                    - v.works[emp_id][window[1]]
+                    + v.works[emp_id][window[2]]
+                    <= 1
+                )
 
 
 class WeeklyRest(Rule):

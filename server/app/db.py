@@ -130,6 +130,7 @@ SEED_RULES = [
         "priority": "desirable",
         "weight": 5,
         "params": {"min_per_shift": 1},
+        "active": False,
     },
     {
         "id": "priority_shift_coverage",
@@ -252,9 +253,10 @@ def seed_data(conn: sqlite3.Connection) -> None:
 
 def _seed_rules(conn: sqlite3.Connection) -> None:
     for rule in SEED_RULES:
+        active = 1 if rule.get("active", True) else 0
         conn.execute(
-            """INSERT OR IGNORE INTO rules (id, name, category, priority, weight, params)
-            VALUES (?, ?, ?, ?, ?, ?)""",
+            """INSERT OR IGNORE INTO rules (id, name, category, priority, weight, params, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 rule["id"],
                 rule["name"],
@@ -262,6 +264,7 @@ def _seed_rules(conn: sqlite3.Connection) -> None:
                 rule["priority"],
                 rule["weight"],
                 json.dumps(rule["params"]),
+                active,
             ),
         )
 

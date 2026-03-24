@@ -48,10 +48,11 @@ function App() {
     try {
       await generateSchedule(year, month)
       await schedule.reload()
+      await validation.validate()
     } finally {
       setGenerating(false)
     }
-  }, [year, month, schedule.reload])
+  }, [year, month, schedule.reload, validation.validate])
 
   async function handleCreateAbsence(data: Parameters<typeof createAbsence>[0]) {
     await createAbsence(data)
