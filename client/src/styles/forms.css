@@ -1,0 +1,111 @@
+/* Forms */
+.absence-form,
+.config-form {
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.form-row {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.form-row label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  flex: 1;
+}
+
+.form-row input,
+.form-row select {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+}
+
+.checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: var(--spacing-sm) !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-primary {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-delete {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+}
+
+.btn-delete:hover {
+  background: var(--color-error-bg);
+}
+
+/* Tables */
+.absence-table {
+  width: 100%;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+}
+
+.absence-table th,
+.absence-table td {
+  padding: var(--spacing-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.absence-table th {
+  background: var(--color-bg-secondary);
+  font-weight: 500;
+}
+
+.empty-state {
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: var(--spacing-lg);
+}
+
+/* Grid absence cells */
+.schedule-table td.has-absence {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.05) 3px,
+    rgba(0, 0, 0, 0.05) 6px
+  ) !important;
+}
+
+.schedule-table td.has-absence .shift-cell {
+  color: var(--color-text-muted);
+}

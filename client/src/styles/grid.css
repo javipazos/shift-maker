@@ -1,0 +1,177 @@
+.schedule-grid {
+  overflow-x: auto;
+}
+
+.schedule-table {
+  width: 100%;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+}
+
+.schedule-table th,
+.schedule-table td {
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-xs);
+  text-align: center;
+  min-width: 36px;
+  height: 32px;
+}
+
+.schedule-table th {
+  background: var(--color-bg-secondary);
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.schedule-table th.weekend {
+  background: #eef0f4;
+}
+
+.schedule-table .employee-name {
+  text-align: left;
+  padding-left: var(--spacing-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  background: var(--color-bg);
+  z-index: 2;
+  min-width: 120px;
+}
+
+.schedule-table th.employee-header {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+}
+
+.schedule-table td.weekend {
+  background: var(--color-weekend-bg);
+}
+
+.schedule-table td.day-off {
+  color: var(--color-text-muted);
+}
+
+.shift-cell {
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 1px 2px;
+}
+
+.coverage-row td {
+  font-weight: 600;
+  font-size: 11px;
+  background: var(--color-bg-secondary);
+}
+
+.coverage-row .employee-name {
+  font-style: italic;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+}
+
+.coverage-low {
+  color: var(--color-error);
+}
+
+.day-header-dow {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.day-header-num {
+  font-weight: 600;
+}
+
+/* Editable cells */
+.schedule-table td.editable {
+  cursor: pointer;
+  position: relative;
+}
+
+.schedule-table td.editable:hover {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Shift picker dropdown */
+.shift-picker {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 120px;
+  padding: var(--spacing-xs) 0;
+}
+
+.shift-picker-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  color: var(--color-text);
+}
+
+.shift-picker-option:hover {
+  background: var(--color-bg-secondary);
+}
+
+.shift-picker-option.selected {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.shift-picker-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Save bar */
+.save-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.save-bar .btn-save {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.save-bar .btn-save:hover {
+  background: var(--color-primary-hover);
+}
+
+.save-bar .btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-bar .status {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
