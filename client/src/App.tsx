@@ -1,10 +1,13 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './styles/layout.css'
 import './styles/grid.css'
 import './styles/validation.css'
 import './styles/forms.css'
-import { createAbsence, deleteAbsence, generateSchedule } from './api/client'
+import { createAbsence, createEmployee, deleteAbsence, fetchAllEmployees, generateSchedule, updateEmployee } from './api/client'
+import type { Employee } from './api/types'
 import { AbsenceForm } from './components/absences/AbsenceForm'
+import { EmployeeForm } from './components/config/EmployeeForm'
+import { EmployeeList } from './components/config/EmployeeList'
 import { AbsenceList } from './components/absences/AbsenceList'
 import { MonthSelector } from './components/layout/MonthSelector'
 import { TabNav, type Tab } from './components/layout/TabNav'
@@ -20,6 +23,17 @@ function App() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [activeTab, setActiveTab] = useState<Tab>('schedule')
   const [generating, setGenerating] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([])
+
+  const loadAllEmployees = useCallback(async () => {
+    const emps = await fetchAllEmployees()
+    setAllEmployees(emps)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'config') loadAllEmployees()
+  }, [activeTab, loadAllEmployees])
 
   const schedule = useSchedule(year, month)
   const validation = useValidation(year, month, !!schedule.schedule, schedule.dirty)
@@ -46,6 +60,24 @@ function App() {
 
   async function handleDeleteAbsence(id: number) {
     await deleteAbsence(id)
+    await schedule.reload()
+  }
+
+  async function handleCreateOrUpdateEmployee(data: Omit<Employee, 'id' | 'created_at'>) {
+    if (editingEmployee) {
+      await updateEmployee(editingEmployee.id, data)
+      setEditingEmployee(null)
+    } else {
+      await createEmployee(data)
+    }
+    await loadAllEmployees()
+    await schedule.reload()
+  }
+
+  async function handleToggleEmployeeStatus(emp: Employee) {
+    const newStatus = emp.status === 'active' ? 'inactive' : 'active'
+    await updateEmployee(emp.id, { status: newStatus })
+    await loadAllEmployees()
     await schedule.reload()
   }
 
@@ -112,7 +144,20 @@ function App() {
             )}
           </>
         )}
-        {activeTab === 'config' && <p>Configuración (próximamente)</p>}
+        {activeTab === 'config' && (
+          <>
+            <EmployeeForm
+              editing={editingEmployee}
+              onSubmit={handleCreateOrUpdateEmployee}
+              onCancel={() => setEditingEmployee(null)}
+            />
+            <EmployeeList
+              employees={allEmployees}
+              onEdit={setEditingEmployee}
+              onToggleStatus={handleToggleEmployeeStatus}
+            />
+          </>
+        )}
         {activeTab === 'absences' && (
           <>
             <AbsenceForm

@@ -12,6 +12,10 @@ export function fetchEmployees(): Promise<Employee[]> {
   return fetchJson('/employees')
 }
 
+export function fetchAllEmployees(): Promise<Employee[]> {
+  return fetchJson('/employees?status=all')
+}
+
 export function fetchShiftTypes(): Promise<ShiftType[]> {
   return fetchJson('/shift-types')
 }
@@ -65,5 +69,30 @@ export async function createAbsence(data: Omit<Absence, 'id' | 'created_at'>): P
 
 export async function deleteAbsence(id: number): Promise<void> {
   const res = await fetch(`${BASE}/absences/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+}
+
+export async function createEmployee(data: Omit<Employee, 'id' | 'created_at'>): Promise<Employee> {
+  const res = await fetch(`${BASE}/employees`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}
+
+export async function updateEmployee(id: number, data: Partial<Omit<Employee, 'id' | 'created_at'>>): Promise<Employee> {
+  const res = await fetch(`${BASE}/employees/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}
+
+export async function deleteEmployee(id: number): Promise<void> {
+  const res = await fetch(`${BASE}/employees/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
 }
