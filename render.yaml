@@ -25,4 +25,3 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
-    plan: free
