@@ -9,7 +9,7 @@ def test_list_shift_types_returns_active(client):
 
 
 def test_list_shift_types_with_status_filter(client):
-    client.delete("/api/shift-types/1")
+    client.put("/api/shift-types/1", json={"status": "inactive"})
 
     active = client.get("/api/shift-types").json()
     assert len(active) == 2
@@ -76,12 +76,12 @@ def test_update_shift_type_not_found(client):
     assert response.status_code == 404
 
 
-def test_delete_shift_type_soft_deletes(client):
+def test_delete_shift_type_hard_deletes(client):
     response = client.delete("/api/shift-types/1")
     assert response.status_code == 200
 
-    active = client.get("/api/shift-types").json()
-    assert len(active) == 2
+    all_types = client.get("/api/shift-types?status=all").json()
+    assert len(all_types) == 2
 
 
 def test_delete_shift_type_not_found(client):

@@ -3,11 +3,13 @@ import './styles/layout.css'
 import './styles/grid.css'
 import './styles/validation.css'
 import './styles/forms.css'
-import { createAbsence, createEmployee, deleteAbsence, deleteEmployee, fetchAllEmployees, generateSchedule, updateEmployee } from './api/client'
-import type { Employee } from './api/types'
+import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, generateSchedule, updateEmployee, updateShiftType } from './api/client'
+import type { Employee, ShiftType } from './api/types'
 import { AbsenceForm } from './components/absences/AbsenceForm'
 import { EmployeeForm } from './components/config/EmployeeForm'
 import { EmployeeList } from './components/config/EmployeeList'
+import { ShiftTypeForm } from './components/config/ShiftTypeForm'
+import { ShiftTypeList } from './components/config/ShiftTypeList'
 import { AbsenceList } from './components/absences/AbsenceList'
 import { MonthSelector } from './components/layout/MonthSelector'
 import { TabNav, type Tab } from './components/layout/TabNav'
@@ -26,10 +28,17 @@ function App() {
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
+  const [editingShiftType, setEditingShiftType] = useState<ShiftType | null>(null)
+  const [allShiftTypes, setAllShiftTypes] = useState<ShiftType[]>([])
 
   const loadAllEmployees = useCallback(async () => {
     const emps = await fetchAllEmployees()
     setAllEmployees(emps)
+  }, [])
+
+  const loadAllShiftTypes = useCallback(async () => {
+    const types = await fetchAllShiftTypes()
+    setAllShiftTypes(types)
   }, [])
 
   // Wake up backend on app load to reduce cold start latency
@@ -45,8 +54,11 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'config') loadAllEmployees()
-  }, [activeTab, loadAllEmployees])
+    if (activeTab === 'config') {
+      loadAllEmployees()
+      loadAllShiftTypes()
+    }
+  }, [activeTab, loadAllEmployees, loadAllShiftTypes])
 
   const schedule = useSchedule(year, month)
   const validation = useValidation(year, month, !!schedule.schedule, schedule.dirty)
@@ -104,6 +116,30 @@ function App() {
   async function handleDeleteEmployee(emp: Employee) {
     await deleteEmployee(emp.id)
     await loadAllEmployees()
+    await schedule.reload()
+  }
+
+  async function handleCreateOrUpdateShiftType(data: Omit<ShiftType, 'id' | 'created_at'>) {
+    if (editingShiftType) {
+      await updateShiftType(editingShiftType.id, data)
+      setEditingShiftType(null)
+    } else {
+      await createShiftType(data)
+    }
+    await loadAllShiftTypes()
+    await schedule.reload()
+  }
+
+  async function handleToggleShiftTypeStatus(st: ShiftType) {
+    const newStatus = st.status === 'active' ? 'inactive' : 'active'
+    await updateShiftType(st.id, { status: newStatus })
+    await loadAllShiftTypes()
+    await schedule.reload()
+  }
+
+  async function handleDeleteShiftType(st: ShiftType) {
+    await deleteShiftType(st.id)
+    await loadAllShiftTypes()
     await schedule.reload()
   }
 
@@ -189,6 +225,7 @@ function App() {
         )}
         {activeTab === 'config' && (
           <>
+            <h2 className="config-section-title">Empleados</h2>
             <EmployeeForm
               editing={editingEmployee}
               onSubmit={handleCreateOrUpdateEmployee}
@@ -199,6 +236,18 @@ function App() {
               onEdit={setEditingEmployee}
               onToggleStatus={handleToggleEmployeeStatus}
               onDelete={handleDeleteEmployee}
+            />
+            <h2 className="config-section-title">Horarios</h2>
+            <ShiftTypeForm
+              editing={editingShiftType}
+              onSubmit={handleCreateOrUpdateShiftType}
+              onCancel={() => setEditingShiftType(null)}
+            />
+            <ShiftTypeList
+              shiftTypes={allShiftTypes}
+              onEdit={setEditingShiftType}
+              onToggleStatus={handleToggleShiftTypeStatus}
+              onDelete={handleDeleteShiftType}
             />
           </>
         )}

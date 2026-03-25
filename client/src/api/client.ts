@@ -20,6 +20,35 @@ export function fetchShiftTypes(): Promise<ShiftType[]> {
   return fetchJson('/shift-types')
 }
 
+export function fetchAllShiftTypes(): Promise<ShiftType[]> {
+  return fetchJson('/shift-types?status=all')
+}
+
+export async function createShiftType(data: Omit<ShiftType, 'id' | 'created_at'>): Promise<ShiftType> {
+  const res = await fetch(`${BASE}/shift-types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}
+
+export async function updateShiftType(id: number, data: Partial<Omit<ShiftType, 'id' | 'created_at'>>): Promise<ShiftType> {
+  const res = await fetch(`${BASE}/shift-types/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}
+
+export async function deleteShiftType(id: number): Promise<void> {
+  const res = await fetch(`${BASE}/shift-types/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+}
+
 export function fetchSchedule(year: number, month: number): Promise<ScheduleResponse> {
   return fetchJson(`/schedules/${year}/${month}`)
 }

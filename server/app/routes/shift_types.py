@@ -94,9 +94,7 @@ def delete_shift_type(
     if not existing:
         raise HTTPException(status_code=404, detail="Shift type not found")
 
-    db.execute(
-        "UPDATE shift_types SET status = 'inactive' WHERE id = ?",
-        (shift_type_id,),
-    )
+    db.execute("DELETE FROM assignments WHERE shift_type_id = ?", (shift_type_id,))
+    db.execute("DELETE FROM shift_types WHERE id = ?", (shift_type_id,))
     db.commit()
     return {"ok": True}
