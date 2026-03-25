@@ -47,6 +47,12 @@
   margin: var(--spacing-xs) 0;
 }
 
+.loading-hint {
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: var(--spacing-lg);
+}
+
 .main-content {
   flex: 1;
   overflow: auto;

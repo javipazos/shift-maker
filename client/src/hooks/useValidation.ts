@@ -27,7 +27,6 @@ export function useValidation(
   dirty: boolean,
 ) {
   const [state, setState] = useState<ValidationState>(EMPTY)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const validate = useCallback(async () => {
     if (!hasSchedule) return

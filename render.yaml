@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: shift-maker-api
+    runtime: python
+    rootDir: server
+    buildCommand: pip install -e .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: CORS_ORIGINS
+        value: "https://shift-maker-frontend.onrender.com,http://localhost:5173,http://localhost:5174"
+    plan: free
+
+  - type: web
+    name: shift-maker-frontend
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://shift-maker-api.onrender.com/api/*
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+    plan: free

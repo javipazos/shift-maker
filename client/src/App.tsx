@@ -129,7 +129,7 @@ function App() {
         <TabNav active={activeTab} onChange={setActiveTab} />
         {activeTab === 'schedule' && (
           <>
-            {schedule.loading && <p>Cargando...</p>}
+            {schedule.loading && <p className="loading-hint">Cargando... (la primera vez puede tardar unos segundos)</p>}
             {schedule.error && <p style={{ color: 'var(--color-error)' }}>Error: {schedule.error}</p>}
             {!schedule.loading && !schedule.error && (
               <>

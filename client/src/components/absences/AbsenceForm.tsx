@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Employee } from '../../api/types'
+import type { Absence, Employee } from '../../api/types'
 
 const ABSENCE_TYPES = [
   { value: 'vacation', label: 'Vacaciones' },
@@ -11,21 +11,14 @@ const ABSENCE_TYPES = [
 
 interface Props {
   employees: Employee[]
-  onSubmit: (data: {
-    employee_id: number
-    start_date: string
-    end_date: string
-    type: string
-    counts_as_work: boolean
-    notes: string | null
-  }) => void
+  onSubmit: (data: Omit<Absence, 'id' | 'created_at'>) => void
 }
 
 export function AbsenceForm({ employees, onSubmit }: Props) {
   const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? 0)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [type, setType] = useState<string>('vacation')
+  const [type, setType] = useState<Absence['type']>('vacation')
   const [countsAsWork, setCountsAsWork] = useState(false)
   const [notes, setNotes] = useState('')
 
@@ -64,7 +57,7 @@ export function AbsenceForm({ employees, onSubmit }: Props) {
         </label>
         <label>
           Tipo
-          <select value={type} onChange={e => setType(e.target.value)}>
+          <select value={type} onChange={e => setType(e.target.value as Absence['type'])}>
             {ABSENCE_TYPES.map(t => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
