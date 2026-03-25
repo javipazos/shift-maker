@@ -32,6 +32,18 @@ function App() {
     setAllEmployees(emps)
   }, [])
 
+  // Wake up backend on app load to reduce cold start latency
+  useEffect(() => {
+    const wakeUpBackend = async () => {
+      try {
+        await fetch('/api/health', { method: 'HEAD' })
+      } catch {
+        // Silently ignore - this is just a wake-up ping
+      }
+    }
+    wakeUpBackend()
+  }, [])
+
   useEffect(() => {
     if (activeTab === 'config') loadAllEmployees()
   }, [activeTab, loadAllEmployees])
