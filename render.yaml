@@ -7,7 +7,7 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: "3.12"
+        value: "3.12.0"
       - key: CORS_ORIGINS
         value: "https://shift-maker-frontend-iiw1.onrender.com,http://localhost:5173,http://localhost:5174"
     plan: free
