@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.types import (
     AbsenceType,
@@ -95,6 +95,12 @@ class AbsenceCreate(BaseModel):
     counts_as_work: bool = False
     notes: str | None = None
 
+    @model_validator(mode="after")
+    def start_before_end(self):
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must be ≤ end_date")
+        return self
+
 
 class AbsenceUpdate(BaseModel):
     start_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -155,6 +161,10 @@ class Assignment(BaseModel):
 
 class AssignmentsBulkUpdate(BaseModel):
     assignments: list[Assignment]
+
+
+class GenerateRequest(BaseModel):
+    fixed_assignments: list[Assignment] = []
 
 
 class ScheduleStatusUpdate(BaseModel):

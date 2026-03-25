@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { validateSchedule } from '../api/client'
-import type { ValidationResult, Violation } from '../api/types'
+import type { Violation } from '../api/types'
 
 interface ValidationState {
   violations: Violation[]
@@ -8,6 +8,7 @@ interface ValidationState {
   correctableCount: number
   structuralCount: number
   loading: boolean
+  error: string | null
 }
 
 const EMPTY: ValidationState = {
@@ -16,6 +17,7 @@ const EMPTY: ValidationState = {
   correctableCount: 0,
   structuralCount: 0,
   loading: false,
+  error: null,
 }
 
 export function useValidation(
@@ -30,7 +32,7 @@ export function useValidation(
   const validate = useCallback(async () => {
     if (!hasSchedule) return
 
-    setState(prev => ({ ...prev, loading: true }))
+    setState(prev => ({ ...prev, loading: true, error: null }))
     try {
       const result = await validateSchedule(year, month)
       setState({
@@ -39,9 +41,14 @@ export function useValidation(
         correctableCount: result.correctable_count,
         structuralCount: result.structural_count,
         loading: false,
+        error: null,
       })
-    } catch {
-      setState(prev => ({ ...prev, loading: false }))
+    } catch (e) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: e instanceof Error ? e.message : 'Error al validar',
+      }))
     }
   }, [year, month, hasSchedule])
 

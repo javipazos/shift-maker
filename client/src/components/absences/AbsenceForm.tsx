@@ -29,9 +29,13 @@ export function AbsenceForm({ employees, onSubmit }: Props) {
   const [countsAsWork, setCountsAsWork] = useState(false)
   const [notes, setNotes] = useState('')
 
+  const dateError = startDate && endDate && startDate > endDate
+    ? 'La fecha de inicio debe ser anterior o igual a la de fin'
+    : ''
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!startDate || !endDate || !employeeId) return
+    if (!startDate || !endDate || !employeeId || dateError) return
 
     onSubmit({
       employee_id: employeeId,
@@ -89,7 +93,8 @@ export function AbsenceForm({ employees, onSubmit }: Props) {
           <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional" />
         </label>
       </div>
-      <button type="submit" className="btn-primary">Añadir ausencia</button>
+      {dateError && <p className="form-error">{dateError}</p>}
+      <button type="submit" className="btn-primary" disabled={!!dateError}>Añadir ausencia</button>
     </form>
   )
 }

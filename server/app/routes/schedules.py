@@ -7,6 +7,7 @@ from app.deps import get_db
 from app.models import (
     Assignment,
     AssignmentsBulkUpdate,
+    GenerateRequest,
     Schedule,
     ScheduleStatusUpdate,
 )
@@ -226,6 +227,7 @@ def validate(
 def generate(
     year: int,
     month: int,
+    body: GenerateRequest | None = None,
     db: sqlite3.Connection = Depends(get_db),
 ):
     # Ensure schedule exists
@@ -247,8 +249,9 @@ def generate(
 
     schedule_id = existing["id"]
 
+    fixed = [a.model_dump() for a in body.fixed_assignments] if body else []
     ctx = _build_schedule_context(year, month, [], db)
-    result = solve_schedule(ctx)
+    result = solve_schedule(ctx, fixed=fixed)
 
     if result.assignments:
         db.execute(

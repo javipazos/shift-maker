@@ -18,12 +18,15 @@ class SolveResult:
     relaxed_rules: list[str]
 
 
-def solve_schedule(ctx: ScheduleContext) -> SolveResult:
+def solve_schedule(
+    ctx: ScheduleContext, fixed: list[dict] | None = None
+) -> SolveResult:
     start = time.monotonic()
 
     model = cp_model.CpModel()
     solver_vars = _build_variables(model, ctx)
     _add_basic_constraints(model, solver_vars, ctx)
+    _add_fixed_constraints(model, solver_vars, fixed or [])
     _add_rule_constraints(model, solver_vars, ctx)
 
     solver = cp_model.CpSolver()
@@ -127,6 +130,23 @@ def _add_basic_constraints(
                 sum(v.shifts[emp_id][date][sid] for sid in v.shift_type_ids)
                 == v.works[emp_id][date]
             )
+
+
+def _add_fixed_constraints(
+    model: cp_model.CpModel, v: SolverVars, fixed: list[dict]
+) -> None:
+    for f in fixed:
+        emp_id = f["employee_id"]
+        date = f["date"]
+        sid = f["shift_type_id"]
+
+        if emp_id not in v.works or date not in v.works.get(emp_id, {}):
+            continue
+
+        if sid is None:
+            model.Add(v.works[emp_id][date] == 0)
+        elif sid in v.shifts.get(emp_id, {}).get(date, {}):
+            model.Add(v.shifts[emp_id][date][sid] == 1)
 
 
 def _add_rule_constraints(

@@ -7,9 +7,10 @@ interface Props {
   correctableCount: number
   structuralCount: number
   loading: boolean
+  error?: string | null
 }
 
-export function ValidationPanel({ violations, score, correctableCount, structuralCount, loading }: Props) {
+export function ValidationPanel({ violations, score, correctableCount, structuralCount, loading, error }: Props) {
   const grave = violations.filter(v => v.resolvable && v.severity === 'grave')
   const warnings = violations.filter(v => v.resolvable && v.severity === 'warning')
   const structural = violations.filter(v => !v.resolvable)
@@ -39,6 +40,7 @@ export function ValidationPanel({ violations, score, correctableCount, structura
           )}
         </div>
         {loading && <span className="validation-loading">Validando...</span>}
+        {error && <span className="validation-error">Error: {error}</span>}
       </div>
 
       {grave.length > 0 && (

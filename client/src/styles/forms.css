@@ -160,6 +160,12 @@
   opacity: 0.6;
 }
 
+.form-error {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
 .empty-state {
   color: var(--color-text-muted);
   font-style: italic;

@@ -47,8 +47,16 @@ export async function validateSchedule(year: number, month: number): Promise<Val
   return res.json()
 }
 
-export async function generateSchedule(year: number, month: number): Promise<GenerateResult> {
-  const res = await fetch(`${BASE}/schedules/${year}/${month}/generate`, { method: 'POST' })
+export async function generateSchedule(
+  year: number,
+  month: number,
+  fixedAssignments?: Assignment[],
+): Promise<GenerateResult> {
+  const res = await fetch(`${BASE}/schedules/${year}/${month}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fixed_assignments: fixedAssignments ?? [] }),
+  })
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   return res.json()
 }

@@ -8,10 +8,15 @@ interface ScheduleState {
   employees: Employee[]
   shiftTypes: ShiftType[]
   absences: Absence[]
+  pinned: Set<string>
   loading: boolean
   saving: boolean
   dirty: boolean
   error: string | null
+}
+
+function pinKey(date: string, employeeId: number): string {
+  return `${date}-${employeeId}`
 }
 
 export function useSchedule(year: number, month: number) {
@@ -21,6 +26,7 @@ export function useSchedule(year: number, month: number) {
     employees: [],
     shiftTypes: [],
     absences: [],
+    pinned: new Set(),
     loading: true,
     saving: false,
     dirty: false,
@@ -43,6 +49,7 @@ export function useSchedule(year: number, month: number) {
         employees,
         shiftTypes,
         absences,
+        pinned: new Set(),
         loading: false,
         saving: false,
         dirty: false,
@@ -76,6 +83,33 @@ export function useSchedule(year: number, month: number) {
     })
   }, [])
 
+  const togglePin = useCallback((date: string, employeeId: number) => {
+    setState(prev => {
+      const key = pinKey(date, employeeId)
+      const next = new Set(prev.pinned)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return { ...prev, pinned: next }
+    })
+  }, [])
+
+  const clearPins = useCallback(() => {
+    setState(prev => ({ ...prev, pinned: new Set() }))
+  }, [])
+
+  const isPinned = useCallback((date: string, employeeId: number): boolean => {
+    return state.pinned.has(pinKey(date, employeeId))
+  }, [state.pinned])
+
+  const getPinnedAssignments = useCallback((): Assignment[] => {
+    return state.assignments.filter(a =>
+      state.pinned.has(pinKey(a.date, a.employee_id))
+    )
+  }, [state.assignments, state.pinned])
+
   const save = useCallback(async () => {
     if (!state.dirty) return
 
@@ -96,5 +130,15 @@ export function useSchedule(year: number, month: number) {
     }
   }, [state.dirty, state.schedule, state.assignments, year, month, load])
 
-  return { ...state, reload: load, ensureSchedule, updateCell, save }
+  return {
+    ...state,
+    reload: load,
+    ensureSchedule,
+    updateCell,
+    save,
+    togglePin,
+    clearPins,
+    isPinned,
+    getPinnedAssignments,
+  }
 }

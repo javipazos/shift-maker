@@ -14,9 +14,11 @@ interface Props {
   absences?: Absence[]
   violations?: Violation[]
   onCellChange?: (date: string, employeeId: number, shiftTypeId: number | null) => void
+  isPinned?: (date: string, employeeId: number) => boolean
+  onTogglePin?: (date: string, employeeId: number) => void
 }
 
-export function MonthGrid({ year, month, employees, shiftTypes, assignments, absences = [], violations = [], onCellChange }: Props) {
+export function MonthGrid({ year, month, employees, shiftTypes, assignments, absences = [], violations = [], onCellChange, isPinned, onTogglePin }: Props) {
   const days = getDaysInMonth(year, month)
   const [editingCell, setEditingCell] = useState<string | null>(null)
 
@@ -29,6 +31,11 @@ export function MonthGrid({ year, month, employees, shiftTypes, assignments, abs
   function handleSelect(date: string, employeeId: number, shiftTypeId: number | null) {
     onCellChange?.(date, employeeId, shiftTypeId)
     setEditingCell(null)
+  }
+
+  function handlePinClick(e: React.MouseEvent, date: string, employeeId: number) {
+    e.stopPropagation()
+    onTogglePin?.(date, employeeId)
   }
 
   return (
@@ -58,15 +65,23 @@ export function MonthGrid({ year, month, employees, shiftTypes, assignments, abs
                 const cellViolations = getViolationsForCell(violations, day.date, emp.id)
                 const violationClass = getViolationCellClass(cellViolations)
                 const isAbsent = isEmployeeAbsent(absences, day.date, emp.id)
+                const pinned = isPinned?.(day.date, emp.id) ?? false
 
                 return (
                   <td
                     key={day.date}
-                    className={`${day.isWeekend ? 'weekend' : ''} ${!shift ? 'day-off' : ''} ${onCellChange && !isAbsent ? 'editable' : ''} ${violationClass} ${isAbsent ? 'has-absence' : ''}`}
+                    className={`${day.isWeekend ? 'weekend' : ''} ${!shift ? 'day-off' : ''} ${onCellChange && !isAbsent ? 'editable' : ''} ${violationClass} ${isAbsent ? 'has-absence' : ''} ${pinned ? 'is-pinned' : ''}`}
                     onClick={() => !isAbsent && handleCellClick(day.date, emp.id)}
                     title={isAbsent ? 'Ausencia' : cellViolations.map(v => v.message).join('\n') || undefined}
                   >
                     <ShiftCell shift={shift} />
+                    {onTogglePin && !isAbsent && (
+                      <button
+                        className={`pin-toggle ${pinned ? 'pinned' : ''}`}
+                        onClick={(e) => handlePinClick(e, day.date, emp.id)}
+                        title={pinned ? 'Desfijar' : 'Fijar celda'}
+                      />
+                    )}
                     {isEditing && (
                       <ShiftPicker
                         shiftTypes={shiftTypes}

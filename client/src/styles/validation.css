@@ -108,6 +108,17 @@
   outline-offset: -1px;
 }
 
+.validation-error {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}
+
+.sidebar-error {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  margin: var(--spacing-xs) 0;
+}
+
 /* Generate button */
 .btn-generate {
   width: 100%;

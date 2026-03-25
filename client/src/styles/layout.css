@@ -20,6 +20,33 @@
   margin: 0;
 }
 
+.pin-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: #e8f0fe;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: #1a73e8;
+}
+
+.btn-clear-pins {
+  font-size: var(--font-size-sm);
+  color: #1a73e8;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sidebar-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: var(--spacing-xs) 0;
+}
+
 .main-content {
   flex: 1;
   overflow: auto;

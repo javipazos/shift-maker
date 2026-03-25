@@ -89,3 +89,28 @@ def test_update_schedule_status(client):
     })
     assert response.status_code == 200
     assert response.json()["status"] == "published"
+
+
+def test_generate_with_fixed_assignments(client):
+    response = client.post("/api/schedules/2026/3/generate", json={
+        "fixed_assignments": [
+            {"date": "2026-03-05", "employee_id": 1, "shift_type_id": None},
+            {"date": "2026-03-05", "employee_id": 2, "shift_type_id": 1},
+        ]
+    })
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] in ("optimal", "feasible")
+
+    ana_5 = next(a for a in data["assignments"] if a["employee_id"] == 1 and a["date"] == "2026-03-05")
+    assert ana_5["shift_type_id"] is None
+
+    carlos_5 = next(a for a in data["assignments"] if a["employee_id"] == 2 and a["date"] == "2026-03-05")
+    assert carlos_5["shift_type_id"] == 1
+
+
+def test_generate_without_fixed_assignments(client):
+    response = client.post("/api/schedules/2026/3/generate")
+    assert response.status_code == 200
+    assert response.json()["status"] in ("optimal", "feasible")

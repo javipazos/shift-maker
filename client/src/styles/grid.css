@@ -142,6 +142,38 @@
   flex-shrink: 0;
 }
 
+/* Pinned cells */
+.schedule-table td.is-pinned {
+  background: #e8f0fe !important;
+  outline: 2px solid #4285f4;
+  outline-offset: -2px;
+}
+
+.pin-toggle {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid #aaa;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+  padding: 0;
+  z-index: 1;
+}
+
+.pin-toggle.pinned {
+  background: #4285f4;
+  border-color: #4285f4;
+  opacity: 1;
+}
+
+.schedule-table td.editable:hover .pin-toggle {
+  opacity: 1;
+}
+
 /* Save bar */
 .save-bar {
   display: flex;

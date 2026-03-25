@@ -126,3 +126,24 @@ def test_delete_absence(client):
 def test_delete_absence_not_found(client):
     response = client.delete("/api/absences/999")
     assert response.status_code == 404
+
+
+def test_create_absence_rejects_start_after_end(client):
+    response = client.post("/api/absences", json={
+        "employee_id": 1,
+        "start_date": "2026-03-20",
+        "end_date": "2026-03-16",
+        "type": "vacation",
+    })
+    assert response.status_code == 422
+
+
+def test_create_absence_allows_same_day(client):
+    response = client.post("/api/absences", json={
+        "employee_id": 1,
+        "start_date": "2026-03-16",
+        "end_date": "2026-03-16",
+        "type": "personal",
+    })
+    assert response.status_code == 201
+    assert response.json()["start_date"] == response.json()["end_date"]

@@ -94,3 +94,47 @@ def test_solver_infeasible_with_impossible_constraints():
     config = {"min_daily_coverage": {"params": {"weekday_min": 3, "weekend_min": 3}}}
     result = solve_schedule(_ctx(employees=two_employees, rules_config=config))
     assert result.status == "infeasible"
+
+
+def test_solver_respects_fixed_shift():
+    fixed = [{"date": "2026-03-02", "employee_id": 1, "shift_type_id": 2}]
+    result = solve_schedule(_ctx(), fixed=fixed)
+
+    assert result.status in ("optimal", "feasible")
+    ana_mar2 = next(
+        a for a in result.assignments
+        if a["employee_id"] == 1 and a["date"] == "2026-03-02"
+    )
+    assert ana_mar2["shift_type_id"] == 2
+
+
+def test_solver_respects_fixed_free_day():
+    fixed = [{"date": "2026-03-10", "employee_id": 2, "shift_type_id": None}]
+    result = solve_schedule(_ctx(), fixed=fixed)
+
+    assert result.status in ("optimal", "feasible")
+    carlos_mar10 = next(
+        a for a in result.assignments
+        if a["employee_id"] == 2 and a["date"] == "2026-03-10"
+    )
+    assert carlos_mar10["shift_type_id"] is None
+
+
+def test_solver_respects_multiple_fixed():
+    fixed = [
+        {"date": "2026-03-01", "employee_id": 1, "shift_type_id": None},
+        {"date": "2026-03-01", "employee_id": 2, "shift_type_id": 1},
+        {"date": "2026-03-15", "employee_id": 3, "shift_type_id": 2},
+    ]
+    result = solve_schedule(_ctx(), fixed=fixed)
+
+    assert result.status in ("optimal", "feasible")
+
+    ana_1 = next(a for a in result.assignments if a["employee_id"] == 1 and a["date"] == "2026-03-01")
+    assert ana_1["shift_type_id"] is None
+
+    carlos_1 = next(a for a in result.assignments if a["employee_id"] == 2 and a["date"] == "2026-03-01")
+    assert carlos_1["shift_type_id"] == 1
+
+    maria_15 = next(a for a in result.assignments if a["employee_id"] == 3 and a["date"] == "2026-03-15")
+    assert maria_15["shift_type_id"] == 2

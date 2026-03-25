@@ -23,6 +23,7 @@ function App() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [activeTab, setActiveTab] = useState<Tab>('schedule')
   const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
 
@@ -43,16 +44,22 @@ function App() {
     setMonth(m)
   }
 
+  const hasPins = schedule.pinned.size > 0
+
   const handleGenerate = useCallback(async () => {
     setGenerating(true)
+    setGenerateError(null)
     try {
-      await generateSchedule(year, month)
+      const fixed = schedule.getPinnedAssignments()
+      await generateSchedule(year, month, fixed.length > 0 ? fixed : undefined)
       await schedule.reload()
       await validation.validate()
+    } catch (e) {
+      setGenerateError(e instanceof Error ? e.message : 'Error al generar horario')
     } finally {
       setGenerating(false)
     }
-  }, [year, month, schedule.reload, validation.validate])
+  }, [year, month, schedule.reload, schedule.getPinnedAssignments, validation.validate])
 
   async function handleCreateAbsence(data: Parameters<typeof createAbsence>[0]) {
     await createAbsence(data)
@@ -96,8 +103,22 @@ function App() {
           onClick={handleGenerate}
           disabled={generating || schedule.loading}
         >
-          {generating ? 'Generando...' : 'Generar horario'}
+          {generating ? 'Generando...' : hasPins ? 'Regenerar (con fijados)' : 'Generar horario'}
         </button>
+        {generateError && (
+          <p className="sidebar-error">{generateError}</p>
+        )}
+        {hasPins && (
+          <div className="pin-info">
+            <span>{schedule.pinned.size} celda{schedule.pinned.size !== 1 ? 's' : ''} fijada{schedule.pinned.size !== 1 ? 's' : ''}</span>
+            <button className="btn-clear-pins" onClick={schedule.clearPins}>
+              Limpiar
+            </button>
+          </div>
+        )}
+        {!hasPins && schedule.schedule && (
+          <p className="sidebar-hint">Haz clic en el punto azul de una celda para fijarla antes de regenerar.</p>
+        )}
         {schedule.schedule && (
           <button className="btn-export" onClick={handleExport}>
             Exportar .xlsx
@@ -133,6 +154,8 @@ function App() {
                   absences={schedule.absences}
                   violations={validation.violations}
                   onCellChange={schedule.updateCell}
+                  isPinned={schedule.isPinned}
+                  onTogglePin={schedule.togglePin}
                 />
                 <ValidationPanel
                   violations={validation.violations}
@@ -140,6 +163,7 @@ function App() {
                   correctableCount={validation.correctableCount}
                   structuralCount={validation.structuralCount}
                   loading={validation.loading}
+                  error={validation.error}
                 />
               </>
             )}
