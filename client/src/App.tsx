@@ -3,13 +3,14 @@ import './styles/layout.css'
 import './styles/grid.css'
 import './styles/validation.css'
 import './styles/forms.css'
-import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, generateSchedule, updateEmployee, updateShiftType } from './api/client'
-import type { Employee, ShiftType } from './api/types'
+import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, fetchRules, generateSchedule, updateEmployee, updateRule, updateShiftType } from './api/client'
+import type { Employee, Rule, ShiftType } from './api/types'
 import { AbsenceForm } from './components/absences/AbsenceForm'
 import { EmployeeForm } from './components/config/EmployeeForm'
 import { EmployeeList } from './components/config/EmployeeList'
 import { ShiftTypeForm } from './components/config/ShiftTypeForm'
 import { ShiftTypeList } from './components/config/ShiftTypeList'
+import { RuleList } from './components/config/RuleList'
 import { AbsenceList } from './components/absences/AbsenceList'
 import { MonthSelector } from './components/layout/MonthSelector'
 import { TabNav, type Tab } from './components/layout/TabNav'
@@ -30,6 +31,7 @@ function App() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [editingShiftType, setEditingShiftType] = useState<ShiftType | null>(null)
   const [allShiftTypes, setAllShiftTypes] = useState<ShiftType[]>([])
+  const [allRules, setAllRules] = useState<Rule[]>([])
 
   const loadAllEmployees = useCallback(async () => {
     const emps = await fetchAllEmployees()
@@ -39,6 +41,11 @@ function App() {
   const loadAllShiftTypes = useCallback(async () => {
     const types = await fetchAllShiftTypes()
     setAllShiftTypes(types)
+  }, [])
+
+  const loadRules = useCallback(async () => {
+    const rules = await fetchRules()
+    setAllRules(rules)
   }, [])
 
   // Wake up backend on app load to reduce cold start latency
@@ -57,8 +64,9 @@ function App() {
     if (activeTab === 'config') {
       loadAllEmployees()
       loadAllShiftTypes()
+      loadRules()
     }
-  }, [activeTab, loadAllEmployees, loadAllShiftTypes])
+  }, [activeTab, loadAllEmployees, loadAllShiftTypes, loadRules])
 
   const schedule = useSchedule(year, month)
   const validation = useValidation(year, month, !!schedule.schedule, schedule.dirty)
@@ -141,6 +149,16 @@ function App() {
     await deleteShiftType(st.id)
     await loadAllShiftTypes()
     await schedule.reload()
+  }
+
+  async function handleToggleRule(rule: Rule) {
+    await updateRule(rule.id, { active: !rule.active })
+    await loadRules()
+  }
+
+  async function handleUpdateRule(ruleId: string, data: Partial<Rule>) {
+    await updateRule(ruleId, data)
+    await loadRules()
   }
 
   function handleExport() {
@@ -248,6 +266,12 @@ function App() {
               onEdit={setEditingShiftType}
               onToggleStatus={handleToggleShiftTypeStatus}
               onDelete={handleDeleteShiftType}
+            />
+            <h2 className="config-section-title">Reglas</h2>
+            <RuleList
+              rules={allRules}
+              onToggle={handleToggleRule}
+              onUpdate={handleUpdateRule}
             />
           </>
         )}

@@ -1,4 +1,4 @@
-import type { Absence, Assignment, Employee, GenerateResult, ScheduleResponse, ShiftType, ValidationResult } from './types'
+import type { Absence, Assignment, Employee, GenerateResult, Rule, ScheduleResponse, ShiftType, ValidationResult } from './types'
 
 const BASE = '/api'
 
@@ -132,4 +132,18 @@ export async function updateEmployee(id: number, data: Partial<Omit<Employee, 'i
 export async function deleteEmployee(id: number): Promise<void> {
   const res = await fetch(`${BASE}/employees/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+}
+
+export function fetchRules(): Promise<Rule[]> {
+  return fetchJson('/rules')
+}
+
+export async function updateRule(id: string, data: Partial<Pick<Rule, 'priority' | 'weight' | 'params' | 'active'>>): Promise<Rule> {
+  const res = await fetch(`${BASE}/rules/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
 }

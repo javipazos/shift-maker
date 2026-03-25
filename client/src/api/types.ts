@@ -53,6 +53,16 @@ export interface Absence {
   created_at: string
 }
 
+export interface Rule {
+  id: string
+  name: string
+  category: 'rest' | 'coverage' | 'equity' | 'limits'
+  priority: 'mandatory' | 'desirable'
+  weight: number
+  params: Record<string, unknown>
+  active: boolean
+}
+
 export interface Violation {
   rule_id: string
   date: string
