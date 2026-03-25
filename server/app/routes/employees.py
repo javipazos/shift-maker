@@ -92,8 +92,8 @@ def delete_employee(
     if not existing:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    db.execute(
-        "UPDATE employees SET status = 'inactive' WHERE id = ?", (employee_id,)
-    )
+    db.execute("DELETE FROM assignments WHERE employee_id = ?", (employee_id,))
+    db.execute("DELETE FROM absences WHERE employee_id = ?", (employee_id,))
+    db.execute("DELETE FROM employees WHERE id = ?", (employee_id,))
     db.commit()
     return {"ok": True}

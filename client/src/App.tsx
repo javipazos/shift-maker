@@ -3,7 +3,7 @@ import './styles/layout.css'
 import './styles/grid.css'
 import './styles/validation.css'
 import './styles/forms.css'
-import { createAbsence, createEmployee, deleteAbsence, fetchAllEmployees, generateSchedule, updateEmployee } from './api/client'
+import { createAbsence, createEmployee, deleteAbsence, deleteEmployee, fetchAllEmployees, generateSchedule, updateEmployee } from './api/client'
 import type { Employee } from './api/types'
 import { AbsenceForm } from './components/absences/AbsenceForm'
 import { EmployeeForm } from './components/config/EmployeeForm'
@@ -101,6 +101,12 @@ function App() {
     await schedule.reload()
   }
 
+  async function handleDeleteEmployee(emp: Employee) {
+    await deleteEmployee(emp.id)
+    await loadAllEmployees()
+    await schedule.reload()
+  }
+
   function handleExport() {
     window.open(`/api/schedules/${year}/${month}/export`, '_blank')
   }
@@ -192,6 +198,7 @@ function App() {
               employees={allEmployees}
               onEdit={setEditingEmployee}
               onToggleStatus={handleToggleEmployeeStatus}
+              onDelete={handleDeleteEmployee}
             />
           </>
         )}

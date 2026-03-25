@@ -8,7 +8,7 @@ def test_list_employees_returns_active_by_default(client):
 
 
 def test_list_employees_with_status_filter(client):
-    client.delete("/api/employees/1")
+    client.put("/api/employees/1", json={"status": "inactive"})
 
     active = client.get("/api/employees").json()
     assert len(active) == 3
@@ -68,7 +68,7 @@ def test_update_employee_not_found(client):
     assert response.status_code == 404
 
 
-def test_delete_employee_soft_deletes(client):
+def test_delete_employee_hard_deletes(client):
     response = client.delete("/api/employees/1")
     assert response.status_code == 200
 
@@ -77,7 +77,7 @@ def test_delete_employee_soft_deletes(client):
     assert all(e["id"] != 1 for e in active)
 
     all_employees = client.get("/api/employees?status=all").json()
-    assert len(all_employees) == 4
+    assert len(all_employees) == 3
 
 
 def test_delete_employee_not_found(client):

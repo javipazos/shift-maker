@@ -16,9 +16,10 @@ interface Props {
   employees: Employee[]
   onEdit: (employee: Employee) => void
   onToggleStatus: (employee: Employee) => void
+  onDelete: (employee: Employee) => void
 }
 
-export function EmployeeList({ employees, onEdit, onToggleStatus }: Props) {
+export function EmployeeList({ employees, onEdit, onToggleStatus, onDelete }: Props) {
   if (employees.length === 0) {
     return <p className="empty-state">No hay empleados registrados.</p>
   }
@@ -58,6 +59,14 @@ export function EmployeeList({ employees, onEdit, onToggleStatus }: Props) {
                 onClick={() => onToggleStatus(emp)}
               >
                 {emp.status === 'active' ? 'Desactivar' : 'Activar'}
+              </button>
+              <button
+                className="btn-destroy"
+                onClick={() => {
+                  if (confirm(`¿Eliminar a ${emp.name} permanentemente?`)) onDelete(emp)
+                }}
+              >
+                Borrar
               </button>
             </td>
           </tr>

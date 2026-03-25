@@ -133,6 +133,19 @@
   color: white;
 }
 
+.btn-destroy {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+}
+
+.btn-destroy:hover {
+  background: var(--color-error);
+  color: white;
+}
+
 .action-buttons {
   display: flex;
   gap: var(--spacing-xs);
