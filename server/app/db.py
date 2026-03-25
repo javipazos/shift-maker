@@ -236,16 +236,45 @@ SEED_SHIFT_TYPES = [
 ]
 
 
-def _dict_factory(cursor: Any, row: tuple) -> dict:
-    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+class _DictCursor:
+    """Wraps a libsql cursor to return dicts instead of tuples."""
+
+    def __init__(self, cursor: Any) -> None:
+        self._cursor = cursor
+
+    def _to_dict(self, row: tuple | None) -> dict | None:
+        if row is None:
+            return None
+        return {col[0]: row[idx] for idx, col in enumerate(self._cursor.description)}
+
+    def fetchone(self) -> dict | None:
+        return self._to_dict(self._cursor.fetchone())
+
+    def fetchall(self) -> list[dict]:
+        return [self._to_dict(r) for r in self._cursor.fetchall()]  # type: ignore[misc]
+
+
+class _DictConn:
+    """Wraps a libsql connection so execute() returns dict rows."""
+
+    def __init__(self, conn: Any) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, parameters: tuple = ()) -> _DictCursor:
+        return _DictCursor(self._conn.execute(sql, parameters))
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def close(self) -> None:
+        self._conn.close()
 
 
 def get_connection(db_path: Path = DB_PATH) -> DbConn:
     if TURSO_URL:
         import libsql_experimental as libsql  # type: ignore[import-untyped]
         conn = libsql.connect(TURSO_URL, auth_token=TURSO_TOKEN or "")
-        conn.row_factory = _dict_factory
-        return conn
+        return _DictConn(conn)  # type: ignore[return-value]
 
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
