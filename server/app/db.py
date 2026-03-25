@@ -260,8 +260,8 @@ class _DictConn:
     def __init__(self, conn: Any) -> None:
         self._conn = conn
 
-    def execute(self, sql: str, parameters: tuple = ()) -> _DictCursor:
-        return _DictCursor(self._conn.execute(sql, parameters))
+    def execute(self, sql: str, parameters: tuple | list = ()) -> _DictCursor:
+        return _DictCursor(self._conn.execute(sql, tuple(parameters)))
 
     def commit(self) -> None:
         self._conn.commit()
