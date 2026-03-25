@@ -1,9 +1,7 @@
-import sqlite3
-
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.deps import get_db
+from app.deps import DbConn, get_db
 from app.services.exporter import export_schedule
 
 router = APIRouter(prefix="/api/schedules", tags=["export"])
@@ -13,7 +11,7 @@ router = APIRouter(prefix="/api/schedules", tags=["export"])
 def export(
     year: int,
     month: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     schedule = db.execute(
         "SELECT * FROM schedules WHERE year = ? AND month = ?",

@@ -1,8 +1,6 @@
-import sqlite3
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.deps import get_db
+from app.deps import DbConn, get_db
 from app.models import Employee, EmployeeCreate, EmployeeUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -11,7 +9,7 @@ router = APIRouter(prefix="/api/employees", tags=["employees"])
 @router.get("", response_model=list[Employee])
 def list_employees(
     status: str = Query("active"),
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     if status == "all":
         rows = db.execute("SELECT * FROM employees ORDER BY id").fetchall()
@@ -25,7 +23,7 @@ def list_employees(
 @router.post("", response_model=Employee, status_code=201)
 def create_employee(
     data: EmployeeCreate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     cursor = db.execute(
         """INSERT INTO employees
@@ -53,7 +51,7 @@ def create_employee(
 def update_employee(
     employee_id: int,
     data: EmployeeUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM employees WHERE id = ?", (employee_id,)
@@ -84,7 +82,7 @@ def update_employee(
 @router.delete("/{employee_id}")
 def delete_employee(
     employee_id: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM employees WHERE id = ?", (employee_id,)

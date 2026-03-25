@@ -1,15 +1,15 @@
 import json
-import sqlite3
+from collections.abc import Mapping
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.deps import get_db
+from app.deps import DbConn, get_db
 from app.models import Rule, RuleUpdate
 
 router = APIRouter(prefix="/api/rules", tags=["rules"])
 
 
-def _row_to_rule(row: sqlite3.Row) -> dict:
+def _row_to_rule(row: Mapping) -> dict:
     d = dict(row)
     d["params"] = json.loads(d["params"])
     d["active"] = bool(d["active"])
@@ -17,7 +17,7 @@ def _row_to_rule(row: sqlite3.Row) -> dict:
 
 
 @router.get("", response_model=list[Rule])
-def list_rules(db: sqlite3.Connection = Depends(get_db)):
+def list_rules(db: DbConn = Depends(get_db)):
     rows = db.execute("SELECT * FROM rules ORDER BY category, id").fetchall()
     return [_row_to_rule(row) for row in rows]
 
@@ -26,7 +26,7 @@ def list_rules(db: sqlite3.Connection = Depends(get_db)):
 def update_rule(
     rule_id: str,
     data: RuleUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM rules WHERE id = ?", (rule_id,)

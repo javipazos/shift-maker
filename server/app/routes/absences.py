@@ -1,8 +1,8 @@
-import sqlite3
+from collections.abc import Mapping
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.deps import get_db
+from app.deps import DbConn, get_db
 from app.models import Absence, AbsenceCreate, AbsenceUpdate
 
 router = APIRouter(prefix="/api/absences", tags=["absences"])
@@ -13,7 +13,7 @@ def list_absences(
     year: int | None = Query(None),
     month: int | None = Query(None),
     employee_id: int | None = Query(None),
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     query = "SELECT * FROM absences WHERE 1=1"
     params: list = []
@@ -36,7 +36,7 @@ def list_absences(
 @router.post("", response_model=Absence, status_code=201)
 def create_absence(
     data: AbsenceCreate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     employee = db.execute(
         "SELECT id FROM employees WHERE id = ?", (data.employee_id,)
@@ -69,7 +69,7 @@ def create_absence(
 def update_absence(
     absence_id: int,
     data: AbsenceUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM absences WHERE id = ?", (absence_id,)
@@ -102,7 +102,7 @@ def update_absence(
 @router.delete("/{absence_id}")
 def delete_absence(
     absence_id: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM absences WHERE id = ?", (absence_id,)
@@ -115,7 +115,7 @@ def delete_absence(
     return {"ok": True}
 
 
-def _row_to_absence(row: sqlite3.Row) -> dict:
+def _row_to_absence(row: Mapping) -> dict:
     d = dict(row)
     d["counts_as_work"] = bool(d["counts_as_work"])
     return d

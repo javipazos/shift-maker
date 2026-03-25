@@ -15,7 +15,7 @@ export function ShiftCell({ shift }: Props) {
       style={{ color: shift.color }}
       title={`${shift.name} (${shift.start_time} - ${shift.end_time})`}
     >
-      {formatShiftLabel(shift)}
+      {shift.name}
     </span>
   )
 }

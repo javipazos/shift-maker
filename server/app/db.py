@@ -1,78 +1,82 @@
+from __future__ import annotations
+
 import json
+import os
 import sqlite3
 from pathlib import Path
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.deps import DbConn
 
 DB_PATH = Path(__file__).parent.parent / "shift_maker.db"
 
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS employees (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    hours_per_day REAL NOT NULL DEFAULT 7.5,
-    max_hours_per_week REAL NOT NULL DEFAULT 37.5,
-    contract_type TEXT NOT NULL DEFAULT 'full_time',
-    shift_preference TEXT NOT NULL DEFAULT 'none',
-    preference_strength TEXT NOT NULL DEFAULT 'desirable',
-    status TEXT NOT NULL DEFAULT 'active',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+TURSO_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
 
-CREATE TABLE IF NOT EXISTS shift_types (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    start_time TEXT NOT NULL,
-    end_time TEXT NOT NULL,
-    effective_hours REAL NOT NULL,
-    priority_order INTEGER NOT NULL,
-    color TEXT NOT NULL DEFAULT '#4A90D9',
-    status TEXT NOT NULL DEFAULT 'active',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS absences (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    start_date TEXT NOT NULL,
-    end_date TEXT NOT NULL,
-    type TEXT NOT NULL,
-    counts_as_work INTEGER NOT NULL DEFAULT 0,
-    notes TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS rules (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    priority TEXT NOT NULL DEFAULT 'mandatory',
-    weight INTEGER NOT NULL DEFAULT 5,
-    params TEXT NOT NULL DEFAULT '{}',
-    active INTEGER NOT NULL DEFAULT 1
-);
-
-CREATE TABLE IF NOT EXISTS schedules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    month INTEGER NOT NULL,
-    year INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT 'draft',
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(month, year)
-);
-
-CREATE TABLE IF NOT EXISTS assignments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    schedule_id INTEGER NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
-    date TEXT NOT NULL,
-    employee_id INTEGER NOT NULL REFERENCES employees(id),
-    shift_type_id INTEGER REFERENCES shift_types(id),
-    UNIQUE(schedule_id, date, employee_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_assignments_schedule ON assignments(schedule_id);
-CREATE INDEX IF NOT EXISTS idx_absences_employee ON absences(employee_id);
-CREATE INDEX IF NOT EXISTS idx_absences_dates ON absences(start_date, end_date);
-"""
+SCHEMA_STATEMENTS = [
+    """CREATE TABLE IF NOT EXISTS employees (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        hours_per_day REAL NOT NULL DEFAULT 7.5,
+        max_hours_per_week REAL NOT NULL DEFAULT 37.5,
+        contract_type TEXT NOT NULL DEFAULT 'full_time',
+        shift_preference TEXT NOT NULL DEFAULT 'none',
+        preference_strength TEXT NOT NULL DEFAULT 'desirable',
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS shift_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        effective_hours REAL NOT NULL,
+        priority_order INTEGER NOT NULL,
+        color TEXT NOT NULL DEFAULT '#4A90D9',
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS absences (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        type TEXT NOT NULL,
+        counts_as_work INTEGER NOT NULL DEFAULT 0,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS rules (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        priority TEXT NOT NULL DEFAULT 'mandatory',
+        weight INTEGER NOT NULL DEFAULT 5,
+        params TEXT NOT NULL DEFAULT '{}',
+        active INTEGER NOT NULL DEFAULT 1
+    )""",
+    """CREATE TABLE IF NOT EXISTS schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(month, year)
+    )""",
+    """CREATE TABLE IF NOT EXISTS assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        schedule_id INTEGER NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
+        date TEXT NOT NULL,
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        shift_type_id INTEGER REFERENCES shift_types(id),
+        UNIQUE(schedule_id, date, employee_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_assignments_schedule ON assignments(schedule_id)",
+    "CREATE INDEX IF NOT EXISTS idx_absences_employee ON absences(employee_id)",
+    "CREATE INDEX IF NOT EXISTS idx_absences_dates ON absences(start_date, end_date)",
+]
 
 SEED_RULES = [
     {
@@ -232,7 +236,17 @@ SEED_SHIFT_TYPES = [
 ]
 
 
-def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
+def _dict_factory(cursor: Any, row: tuple) -> dict:
+    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+
+
+def get_connection(db_path: Path = DB_PATH) -> DbConn:
+    if TURSO_URL:
+        import libsql_experimental as libsql  # type: ignore[import-untyped]
+        conn = libsql.connect(TURSO_URL, auth_token=TURSO_TOKEN or "")
+        conn.row_factory = _dict_factory
+        return conn
+
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -240,18 +254,20 @@ def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
     return conn
 
 
-def create_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA_SQL)
+def create_schema(conn: DbConn) -> None:
+    for stmt in SCHEMA_STATEMENTS:
+        conn.execute(stmt)
+    conn.commit()
 
 
-def seed_data(conn: sqlite3.Connection) -> None:
+def seed_data(conn: DbConn) -> None:
     _seed_rules(conn)
     _seed_employees(conn)
     _seed_shift_types(conn)
     conn.commit()
 
 
-def _seed_rules(conn: sqlite3.Connection) -> None:
+def _seed_rules(conn: DbConn) -> None:
     for rule in SEED_RULES:
         active = 1 if rule.get("active", True) else 0
         conn.execute(
@@ -269,9 +285,10 @@ def _seed_rules(conn: sqlite3.Connection) -> None:
         )
 
 
-def _seed_employees(conn: sqlite3.Connection) -> None:
-    existing = conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0]
-    if existing > 0:
+def _seed_employees(conn: DbConn) -> None:
+    existing = conn.execute("SELECT COUNT(*) as cnt FROM employees").fetchone()
+    count = existing["cnt"] if isinstance(existing, dict) else existing[0]
+    if count > 0:
         return
 
     for emp in SEED_EMPLOYEES:
@@ -290,9 +307,10 @@ def _seed_employees(conn: sqlite3.Connection) -> None:
         )
 
 
-def _seed_shift_types(conn: sqlite3.Connection) -> None:
-    existing = conn.execute("SELECT COUNT(*) FROM shift_types").fetchone()[0]
-    if existing > 0:
+def _seed_shift_types(conn: DbConn) -> None:
+    existing = conn.execute("SELECT COUNT(*) as cnt FROM shift_types").fetchone()
+    count = existing["cnt"] if isinstance(existing, dict) else existing[0]
+    if count > 0:
         return
 
     for st in SEED_SHIFT_TYPES:
@@ -311,7 +329,7 @@ def _seed_shift_types(conn: sqlite3.Connection) -> None:
         )
 
 
-def init_db(db_path: Path = DB_PATH) -> sqlite3.Connection:
+def init_db(db_path: Path = DB_PATH) -> DbConn:
     conn = get_connection(db_path)
     create_schema(conn)
     seed_data(conn)

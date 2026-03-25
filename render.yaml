@@ -10,6 +10,10 @@ services:
         value: "3.12.0"
       - key: CORS_ORIGINS
         value: "https://shift-maker-frontend-iiw1.onrender.com,http://localhost:5173,http://localhost:5174"
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
     plan: free
 
   - type: web

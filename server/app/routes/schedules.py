@@ -1,9 +1,8 @@
 import json
-import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.deps import get_db
+from app.deps import DbConn, get_db
 from app.models import (
     Assignment,
     AssignmentsBulkUpdate,
@@ -22,7 +21,7 @@ router = APIRouter(prefix="/api/schedules", tags=["schedules"])
 def get_schedule(
     year: int,
     month: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     schedule = db.execute(
         "SELECT * FROM schedules WHERE year = ? AND month = ?",
@@ -47,7 +46,7 @@ def get_schedule(
 def create_schedule(
     year: int,
     month: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM schedules WHERE year = ? AND month = ?",
@@ -74,7 +73,7 @@ def update_assignments(
     year: int,
     month: int,
     data: AssignmentsBulkUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     schedule = db.execute(
         "SELECT * FROM schedules WHERE year = ? AND month = ?",
@@ -115,7 +114,7 @@ def update_schedule_status(
     year: int,
     month: int,
     data: ScheduleStatusUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     schedule = db.execute(
         "SELECT * FROM schedules WHERE year = ? AND month = ?",
@@ -138,7 +137,7 @@ def update_schedule_status(
 
 
 def _build_schedule_context(
-    year: int, month: int, assignments: list[dict], db: sqlite3.Connection
+    year: int, month: int, assignments: list[dict], db: DbConn
 ) -> ScheduleContext:
     employees = [
         dict(r) for r in db.execute(
@@ -181,7 +180,7 @@ def _build_schedule_context(
 def validate(
     year: int,
     month: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     schedule = db.execute(
         "SELECT * FROM schedules WHERE year = ? AND month = ?",
@@ -228,7 +227,7 @@ def generate(
     year: int,
     month: int,
     body: GenerateRequest | None = None,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     # Ensure schedule exists
     existing = db.execute(
@@ -292,7 +291,7 @@ def generate(
 def summary(
     year: int,
     month: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     schedule = db.execute(
         "SELECT * FROM schedules WHERE year = ? AND month = ?",
@@ -385,7 +384,7 @@ def summary(
 def previous_context(
     year: int,
     month: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     """Return last 7 days of the previous month's schedule for continuity."""
     if month == 1:

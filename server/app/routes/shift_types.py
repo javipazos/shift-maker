@@ -1,8 +1,6 @@
-import sqlite3
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.deps import get_db
+from app.deps import DbConn, get_db
 from app.models import ShiftType, ShiftTypeCreate, ShiftTypeUpdate
 
 router = APIRouter(prefix="/api/shift-types", tags=["shift-types"])
@@ -11,7 +9,7 @@ router = APIRouter(prefix="/api/shift-types", tags=["shift-types"])
 @router.get("", response_model=list[ShiftType])
 def list_shift_types(
     status: str = Query("active"),
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     if status == "all":
         rows = db.execute(
@@ -28,7 +26,7 @@ def list_shift_types(
 @router.post("", response_model=ShiftType, status_code=201)
 def create_shift_type(
     data: ShiftTypeCreate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     cursor = db.execute(
         """INSERT INTO shift_types
@@ -55,7 +53,7 @@ def create_shift_type(
 def update_shift_type(
     shift_type_id: int,
     data: ShiftTypeUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM shift_types WHERE id = ?", (shift_type_id,)
@@ -86,7 +84,7 @@ def update_shift_type(
 @router.delete("/{shift_type_id}")
 def delete_shift_type(
     shift_type_id: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: DbConn = Depends(get_db),
 ):
     existing = db.execute(
         "SELECT * FROM shift_types WHERE id = ?", (shift_type_id,)
