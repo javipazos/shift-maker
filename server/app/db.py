@@ -242,6 +242,10 @@ class _DictCursor:
     def __init__(self, cursor: Any) -> None:
         self._cursor = cursor
 
+    @property
+    def lastrowid(self) -> int | None:
+        return self._cursor.lastrowid
+
     def _to_dict(self, row: tuple | None) -> dict | None:
         if row is None:
             return None
