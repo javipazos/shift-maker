@@ -14,10 +14,34 @@
   flex-shrink: 0;
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .sidebar h1 {
   font-size: var(--font-size-xl);
   font-weight: 600;
   margin: 0;
+}
+
+.login-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: var(--spacing-md);
+}
+
+.login-screen h1 {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.login-screen p {
+  color: var(--color-text-muted);
 }
 
 .pin-info {

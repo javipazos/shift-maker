@@ -9,6 +9,7 @@ dependencies = [
     "ortools>=9.11",
     "openpyxl>=3.1.0",
     "libsql-experimental>=0.0.55",
+    "PyJWT[crypto]>=2.8.0",
 ]
 
 [project.optional-dependencies]

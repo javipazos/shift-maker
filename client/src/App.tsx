@@ -1,9 +1,10 @@
+import { SignedIn, SignedOut, SignInButton, UserButton, useAuth } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
 import './styles/layout.css'
 import './styles/grid.css'
 import './styles/validation.css'
 import './styles/forms.css'
-import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, fetchRules, generateSchedule, updateEmployee, updateRule, updateShiftType } from './api/client'
+import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, fetchRules, generateSchedule, setTokenGetter, updateEmployee, updateRule, updateShiftType } from './api/client'
 import type { Employee, Rule, ShiftType } from './api/types'
 import { AbsenceForm } from './components/absences/AbsenceForm'
 import { EmployeeForm } from './components/config/EmployeeForm'
@@ -20,7 +21,39 @@ import { ValidationPanel } from './components/validation/ValidationPanel'
 import { useSchedule } from './hooks/useSchedule'
 import { useValidation } from './hooks/useValidation'
 
+const clerkEnabled = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+
 function App() {
+  if (!clerkEnabled) return <AppContent />
+
+  return (
+    <>
+      <SignedOut>
+        <div className="login-screen">
+          <h1>Shift Maker</h1>
+          <p>Inicia sesión para continuar</p>
+          <SignInButton mode="modal">
+            <button className="btn-primary">Iniciar sesión</button>
+          </SignInButton>
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <AuthBridge />
+        <AppContent />
+      </SignedIn>
+    </>
+  )
+}
+
+function AuthBridge() {
+  const { getToken } = useAuth()
+  useEffect(() => {
+    setTokenGetter(getToken)
+  }, [getToken])
+  return null
+}
+
+function AppContent() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -168,7 +201,10 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <h1>Shift Maker</h1>
+        <div className="sidebar-header">
+          <h1>Shift Maker</h1>
+          {clerkEnabled && <UserButton />}
+        </div>
         <MonthSelector year={year} month={month} onChange={handleMonthChange} />
         <button
           className="btn-generate"

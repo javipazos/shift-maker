@@ -1,11 +1,16 @@
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth import verify_token
 from app.db import DB_PATH, init_db
 from app.deps import get_db, set_db_conn
 from app.routes import absences, employees, export, shift_types, rules, schedules
+
+AUTH_ENABLED = bool(os.environ.get("CLERK_JWKS_URL"))
+auth_deps = [Depends(verify_token)] if AUTH_ENABLED else []
 
 
 @asynccontextmanager
@@ -22,8 +27,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-import os
-
 cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
 
 app.add_middleware(
@@ -33,12 +36,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(absences.router)
-app.include_router(employees.router)
-app.include_router(shift_types.router)
-app.include_router(rules.router)
-app.include_router(schedules.router)
-app.include_router(export.router)
+app.include_router(absences.router, dependencies=auth_deps)
+app.include_router(employees.router, dependencies=auth_deps)
+app.include_router(shift_types.router, dependencies=auth_deps)
+app.include_router(rules.router, dependencies=auth_deps)
+app.include_router(schedules.router, dependencies=auth_deps)
+app.include_router(export.router, dependencies=auth_deps)
 
 
 @app.get("/api/health")

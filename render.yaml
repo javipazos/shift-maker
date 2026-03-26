@@ -14,6 +14,8 @@ services:
         sync: false
       - key: TURSO_AUTH_TOKEN
         sync: false
+      - key: CLERK_JWKS_URL
+        sync: false
     plan: free
 
   - type: web
@@ -29,3 +31,5 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
