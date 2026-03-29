@@ -64,6 +64,7 @@ function AppContent() {
   const [editingShiftType, setEditingShiftType] = useState<ShiftType | null>(null)
   const [allShiftTypes, setAllShiftTypes] = useState<ShiftType[]>([])
   const [allRules, setAllRules] = useState<Rule[]>([])
+  const [configLoading, setConfigLoading] = useState(false)
 
   const loadAllEmployees = useCallback(async () => {
     const emps = await fetchAllEmployees()
@@ -94,9 +95,9 @@ function AppContent() {
 
   useEffect(() => {
     if (activeTab === 'config') {
-      loadAllEmployees()
-      loadAllShiftTypes()
-      loadRules()
+      setConfigLoading(true)
+      Promise.all([loadAllEmployees(), loadAllShiftTypes(), loadRules()])
+        .finally(() => setConfigLoading(false))
     }
   }, [activeTab, loadAllEmployees, loadAllShiftTypes, loadRules])
 
@@ -290,6 +291,8 @@ function AppContent() {
         )}
         {activeTab === 'config' && (
           <>
+            {configLoading && <p className="loading-hint">Cargando... (la primera vez puede tardar unos segundos)</p>}
+            {!configLoading && <>
             <h2 className="config-section-title">Empleados</h2>
             <EmployeeForm
               editing={editingEmployee}
@@ -320,19 +323,23 @@ function AppContent() {
               onToggle={handleToggleRule}
               onUpdate={handleUpdateRule}
             />
+            </>}
           </>
         )}
         {activeTab === 'absences' && (
           <>
-            <AbsenceForm
-              employees={schedule.employees}
-              onSubmit={handleCreateAbsence}
-            />
-            <AbsenceList
-              absences={schedule.absences}
-              employees={schedule.employees}
-              onDelete={handleDeleteAbsence}
-            />
+            {schedule.loading && <p className="loading-hint">Cargando... (la primera vez puede tardar unos segundos)</p>}
+            {!schedule.loading && <>
+              <AbsenceForm
+                employees={schedule.employees}
+                onSubmit={handleCreateAbsence}
+              />
+              <AbsenceList
+                absences={schedule.absences}
+                employees={schedule.employees}
+                onDelete={handleDeleteAbsence}
+              />
+            </>}
           </>
         )}
         {activeTab === 'validation' && (
