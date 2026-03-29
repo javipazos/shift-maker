@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, SignInButton, UserButton, useAuth } from '@clerk/react'
+import { SignInButton, UserButton, useAuth } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
 import './styles/layout.css'
 import './styles/grid.css'
@@ -25,32 +25,31 @@ const clerkEnabled = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 function App() {
   if (!clerkEnabled) return <AppContent />
-
-  return (
-    <>
-      <SignedOut>
-        <div className="login-screen">
-          <h1>Shift Maker</h1>
-          <p>Inicia sesión para continuar</p>
-          <SignInButton mode="modal">
-            <button className="btn-primary">Iniciar sesión</button>
-          </SignInButton>
-        </div>
-      </SignedOut>
-      <SignedIn>
-        <AuthBridge />
-        <AppContent />
-      </SignedIn>
-    </>
-  )
+  return <AuthGate />
 }
 
-function AuthBridge() {
-  const { getToken } = useAuth()
+function AuthGate() {
+  const { isSignedIn, isLoaded, getToken } = useAuth()
+
   useEffect(() => {
-    setTokenGetter(getToken)
-  }, [getToken])
-  return null
+    if (isSignedIn) setTokenGetter(getToken)
+  }, [isSignedIn, getToken])
+
+  if (!isLoaded) return null
+
+  if (!isSignedIn) {
+    return (
+      <div className="login-screen">
+        <h1>Shift Maker</h1>
+        <p>Inicia sesión para continuar</p>
+        <SignInButton mode="modal">
+          <button className="btn-primary">Iniciar sesión</button>
+        </SignInButton>
+      </div>
+    )
+  }
+
+  return <AppContent />
 }
 
 function AppContent() {
