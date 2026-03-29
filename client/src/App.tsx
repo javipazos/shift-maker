@@ -4,7 +4,7 @@ import './styles/layout.css'
 import './styles/grid.css'
 import './styles/validation.css'
 import './styles/forms.css'
-import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, fetchRules, generateSchedule, setTokenGetter, updateEmployee, updateRule, updateShiftType } from './api/client'
+import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteSchedule, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, fetchRules, generateSchedule, setTokenGetter, updateEmployee, updateRule, updateShiftType } from './api/client'
 import type { Employee, Rule, ShiftType } from './api/types'
 import { AbsenceForm } from './components/absences/AbsenceForm'
 import { EmployeeForm } from './components/config/EmployeeForm'
@@ -198,6 +198,13 @@ function AppContent() {
     window.open(`/api/schedules/${year}/${month}/export`, '_blank')
   }
 
+  async function handleClearSchedule() {
+    if (!confirm('¿Borrar todo el horario de este mes? Esta acción no se puede deshacer.')) return
+    await deleteSchedule(year, month)
+    await schedule.reload()
+    await validation.validate()
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -228,9 +235,14 @@ function AppContent() {
           <p className="sidebar-hint">Haz clic en el punto azul de una celda para fijarla antes de regenerar.</p>
         )}
         {schedule.schedule && (
-          <button className="btn-export" onClick={handleExport}>
-            Exportar .xlsx
-          </button>
+          <>
+            <button className="btn-export" onClick={handleExport}>
+              Exportar .xlsx
+            </button>
+            <button className="btn-clear-schedule" onClick={handleClearSchedule}>
+              Limpiar mes
+            </button>
+          </>
         )}
       </aside>
       <main className="main-content">

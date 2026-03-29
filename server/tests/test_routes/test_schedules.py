@@ -114,3 +114,18 @@ def test_generate_without_fixed_assignments(client):
     response = client.post("/api/schedules/2026/3/generate")
     assert response.status_code == 200
     assert response.json()["status"] in ("optimal", "feasible")
+
+
+def test_delete_schedule(client):
+    client.post("/api/schedules/2026/3")
+    response = client.delete("/api/schedules/2026/3")
+    assert response.status_code == 200
+
+    data = client.get("/api/schedules/2026/3").json()
+    assert data["schedule"] is None
+    assert data["assignments"] == []
+
+
+def test_delete_schedule_not_found(client):
+    response = client.delete("/api/schedules/2099/1")
+    assert response.status_code == 404

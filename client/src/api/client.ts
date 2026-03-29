@@ -103,6 +103,10 @@ export function generateSchedule(year: number, month: number, fixedAssignments?:
   return postJson(`/schedules/${year}/${month}/generate`, { fixed_assignments: fixedAssignments ?? [] })
 }
 
+export function deleteSchedule(year: number, month: number): Promise<void> {
+  return del(`/schedules/${year}/${month}`)
+}
+
 export function fetchAbsences(year: number, month: number): Promise<Absence[]> {
   return fetchJson(`/absences?year=${year}&month=${month}`)
 }

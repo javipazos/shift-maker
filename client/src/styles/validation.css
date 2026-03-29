@@ -153,3 +153,19 @@
 .btn-export:hover {
   background: var(--color-bg-secondary);
 }
+
+.btn-clear-schedule {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg);
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+}
+
+.btn-clear-schedule:hover {
+  background: var(--color-error);
+  color: white;
+}

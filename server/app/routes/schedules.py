@@ -109,6 +109,26 @@ def update_assignments(
     return {"assignments": [dict(a) for a in assignments]}
 
 
+@router.delete("/{year}/{month}")
+def delete_schedule(
+    year: int,
+    month: int,
+    db: DbConn = Depends(get_db),
+):
+    schedule = db.execute(
+        "SELECT * FROM schedules WHERE year = ? AND month = ?",
+        (year, month),
+    ).fetchone()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    db.execute("DELETE FROM assignments WHERE schedule_id = ?", (schedule["id"],))
+    db.execute("DELETE FROM schedules WHERE id = ?", (schedule["id"],))
+    db.commit()
+    return {"ok": True}
+
+
 @router.put("/{year}/{month}/status")
 def update_schedule_status(
     year: int,
