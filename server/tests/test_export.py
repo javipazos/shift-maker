@@ -1,7 +1,7 @@
 from openpyxl import load_workbook
 from io import BytesIO
 
-from app.services.exporter import export_schedule
+from app.services.exporter import export_ics, export_schedule
 
 
 SHIFT_TYPES = [
@@ -103,4 +103,94 @@ def test_export_endpoint(client):
 
 def test_export_endpoint_not_found(client):
     response = client.get("/api/schedules/2026/3/export")
+    assert response.status_code == 404
+
+
+def test_export_ics_produces_valid_vcalendar():
+    assignments = [
+        {"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1},
+        {"date": "2026-03-03", "employee_id": 1, "shift_type_id": 2},
+    ]
+    result = export_ics(EMPLOYEES[0], SHIFT_TYPES, assignments)
+
+    assert result.startswith("BEGIN:VCALENDAR\r\n")
+    assert result.endswith("END:VCALENDAR\r\n")
+    assert "VERSION:2.0" in result
+    assert result.count("BEGIN:VEVENT") == 2
+
+
+def test_export_ics_event_has_correct_times():
+    assignments = [
+        {"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1},
+    ]
+    result = export_ics(EMPLOYEES[0], SHIFT_TYPES, assignments)
+
+    assert "DTSTART:20260302T070000" in result
+    assert "DTEND:20260302T143000" in result
+    assert "SUMMARY:Mañana" in result
+
+
+def test_export_ics_skips_free_days():
+    assignments = [
+        {"date": "2026-03-02", "employee_id": 1, "shift_type_id": None},
+        {"date": "2026-03-03", "employee_id": 1, "shift_type_id": 1},
+    ]
+    result = export_ics(EMPLOYEES[0], SHIFT_TYPES, assignments)
+
+    assert result.count("BEGIN:VEVENT") == 1
+
+
+def test_export_ics_filters_to_single_employee():
+    assignments = [
+        {"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1},
+        {"date": "2026-03-02", "employee_id": 2, "shift_type_id": 2},
+    ]
+    result = export_ics(EMPLOYEES[0], SHIFT_TYPES, assignments)
+
+    assert result.count("BEGIN:VEVENT") == 1
+    assert "SUMMARY:Mañana" in result
+
+
+def test_export_ics_endpoint(client):
+    client.post("/api/schedules/2026/3")
+    client.put("/api/schedules/2026/3/assignments", json={
+        "assignments": [
+            {"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1},
+        ]
+    })
+
+    response = client.get("/api/schedules/2026/3/export-ics/1")
+    assert response.status_code == 200
+    assert "text/calendar" in response.headers["content-type"]
+
+    content = response.text
+    assert "BEGIN:VCALENDAR" in content
+    assert "BEGIN:VEVENT" in content
+
+
+def test_export_ics_endpoint_filename(client):
+    client.post("/api/schedules/2026/3")
+    client.put("/api/schedules/2026/3/assignments", json={
+        "assignments": [
+            {"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1},
+        ]
+    })
+
+    response = client.get("/api/schedules/2026/3/export-ics/1")
+    disposition = response.headers["content-disposition"]
+
+    assert "Ana" in disposition
+    assert "2026-03" in disposition
+    assert ".ics" in disposition
+
+
+def test_export_ics_endpoint_schedule_not_found(client):
+    response = client.get("/api/schedules/2026/3/export-ics/1")
+    assert response.status_code == 404
+
+
+def test_export_ics_endpoint_employee_not_found(client):
+    client.post("/api/schedules/2026/3")
+
+    response = client.get("/api/schedules/2026/3/export-ics/999")
     assert response.status_code == 404

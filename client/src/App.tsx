@@ -194,8 +194,15 @@ function AppContent() {
     await loadRules()
   }
 
+  const [icsMenuOpen, setIcsMenuOpen] = useState(false)
+
   function handleExport() {
     window.open(`/api/schedules/${year}/${month}/export`, '_blank')
+  }
+
+  function handleExportIcs(employeeId: number) {
+    window.open(`/api/schedules/${year}/${month}/export-ics/${employeeId}`, '_blank')
+    setIcsMenuOpen(false)
   }
 
   async function handleClearSchedule() {
@@ -239,6 +246,29 @@ function AppContent() {
             <button className="btn-export" onClick={handleExport}>
               Exportar .xlsx
             </button>
+            <div className="ics-export-group">
+              <button
+                className="btn-export"
+                onClick={() => setIcsMenuOpen(!icsMenuOpen)}
+              >
+                Exportar .ics
+                <span className={`ics-chevron ${icsMenuOpen ? 'ics-chevron-open' : ''}`}>▾</span>
+              </button>
+              {icsMenuOpen && (
+                <ul className="ics-employee-list">
+                  {schedule.employees.map(emp => (
+                    <li key={emp.id}>
+                      <button
+                        className="ics-employee-btn"
+                        onClick={() => handleExportIcs(emp.id)}
+                      >
+                        {emp.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <button className="btn-clear-schedule" onClick={handleClearSchedule}>
               Limpiar mes
             </button>

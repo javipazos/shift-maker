@@ -141,6 +141,43 @@ def _build_summary_sheet(ws, employees, shift_types, assignments):
         ws.cell(row=row_idx, column=4, value=round(weekly_avg, 1))
 
 
+def export_ics(
+    employee: dict,
+    shift_types: list[dict],
+    assignments: list[dict],
+) -> str:
+    shift_map = {st["id"]: st for st in shift_types}
+    emp_shifts = [
+        a for a in assignments
+        if a["employee_id"] == employee["id"] and a["shift_type_id"] is not None
+    ]
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Shift Maker//ES",
+        "CALSCALE:GREGORIAN",
+    ]
+
+    for assignment in emp_shifts:
+        shift = shift_map.get(assignment["shift_type_id"])
+        if not shift:
+            continue
+        date_str = assignment["date"].replace("-", "")
+        start = shift["start_time"].replace(":", "")
+        end = shift["end_time"].replace(":", "")
+        lines += [
+            "BEGIN:VEVENT",
+            f"DTSTART:{date_str}T{start}00",
+            f"DTEND:{date_str}T{end}00",
+            f"SUMMARY:{shift['name']}",
+            "END:VEVENT",
+        ]
+
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"
+
+
 def _find_assignment(assignments, date, emp_id):
     for a in assignments:
         if a["date"] == date and a["employee_id"] == emp_id:
