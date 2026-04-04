@@ -152,15 +152,21 @@ class WeekendDistribution(Rule):
             if weekend_vars:
                 weekend_work_counts[emp_id] = sum(weekend_vars)
 
-        # Minimize difference between max and min worked weekends
+        # Hard constraint: no employee works more than 1 extra weekend vs others
         if len(weekend_work_counts) >= 2:
             emp_ids = list(weekend_work_counts.keys())
             for i in range(len(emp_ids)):
                 for j in range(i + 1, len(emp_ids)):
-                    diff = model.NewIntVar(0, len(weekends), f"we_diff_{emp_ids[i]}_{emp_ids[j]}")
-                    model.Add(diff >= weekend_work_counts[emp_ids[i]] - weekend_work_counts[emp_ids[j]])
-                    model.Add(diff >= weekend_work_counts[emp_ids[j]] - weekend_work_counts[emp_ids[i]])
-                    model.Minimize(diff)
+                    model.Add(
+                        weekend_work_counts[emp_ids[i]]
+                        - weekend_work_counts[emp_ids[j]]
+                        <= 1
+                    )
+                    model.Add(
+                        weekend_work_counts[emp_ids[j]]
+                        - weekend_work_counts[emp_ids[i]]
+                        <= 1
+                    )
 
 
 class HoursDistribution(Rule):

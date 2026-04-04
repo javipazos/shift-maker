@@ -28,6 +28,7 @@ def solve_schedule(
     _add_basic_constraints(model, solver_vars, ctx)
     _add_fixed_constraints(model, solver_vars, fixed or [])
     _add_rule_constraints(model, solver_vars, ctx)
+    _add_objective(model, solver_vars, ctx)
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = 10
@@ -172,6 +173,35 @@ def _add_rule_constraints(
         if not config["active"]:
             continue
         rule.add_constraints(model, v, ctx)
+
+
+def _add_objective(
+    model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
+) -> None:
+    num_dates = len(v.dates)
+
+    total_works_per_emp: dict[int, cp_model.LinearExpr] = {}
+    for emp_id in v.employee_ids:
+        total_works_per_emp[emp_id] = sum(
+            v.works[emp_id][d] for d in v.dates
+        )
+
+    max_work = model.NewIntVar(0, num_dates, "max_work")
+    min_work = model.NewIntVar(0, num_dates, "min_work")
+
+    for emp_id in v.employee_ids:
+        model.Add(max_work >= total_works_per_emp[emp_id])
+        model.Add(min_work <= total_works_per_emp[emp_id])
+
+    spread = model.NewIntVar(0, num_dates, "work_spread")
+    model.Add(spread == max_work - min_work)
+
+    total_all = sum(total_works_per_emp[eid] for eid in v.employee_ids)
+
+    # Primary: maximize total work days (weight = num_dates + 1 so one extra
+    # work day always beats any spread reduction)
+    # Secondary: minimize spread between employees
+    model.Minimize(-total_all * (num_dates + 1) + spread)
 
 
 def _extract_assignments(

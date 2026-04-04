@@ -149,6 +149,34 @@ def test_solver_prev_context_not_in_output():
     assert all(d.startswith("2026-03") for d in output_dates)
 
 
+def test_solver_distributes_work_days_fairly():
+    """No employee should work significantly more or fewer days than others."""
+    result = solve_schedule(_ctx())
+
+    assert result.status in ("optimal", "feasible")
+    days_per_emp = {}
+    for a in result.assignments:
+        if a["shift_type_id"] is not None:
+            days_per_emp[a["employee_id"]] = days_per_emp.get(a["employee_id"], 0) + 1
+
+    counts = list(days_per_emp.values())
+    assert max(counts) - min(counts) <= 3
+
+
+def test_solver_does_not_under_schedule():
+    """With 4 employees and coverage=1, each should work at least 15 days in a 31-day month."""
+    result = solve_schedule(_ctx())
+
+    assert result.status in ("optimal", "feasible")
+    days_per_emp = {}
+    for a in result.assignments:
+        if a["shift_type_id"] is not None:
+            days_per_emp[a["employee_id"]] = days_per_emp.get(a["employee_id"], 0) + 1
+
+    for emp_id, count in days_per_emp.items():
+        assert count >= 15, f"Employee {emp_id} only works {count} days"
+
+
 def test_solver_respects_multiple_fixed():
     fixed = [
         {"date": "2026-03-01", "employee_id": 1, "shift_type_id": None},
