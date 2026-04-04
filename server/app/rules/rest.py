@@ -44,8 +44,9 @@ class MinRestBetweenShifts(Rule):
         config = self.get_config(ctx)
         min_minutes = config["params"]["min_hours"] * 60
         violations = []
+        first_date = f"{ctx.year}-{ctx.month:02d}-01"
 
-        assignments_by_emp = _group_by_employee(ctx.assignments)
+        assignments_by_emp = _group_by_employee(_all_assignments(ctx))
 
         for emp_id, emp_assignments in assignments_by_emp.items():
             by_date = {a["date"]: a for a in emp_assignments}
@@ -54,6 +55,9 @@ class MinRestBetweenShifts(Rule):
             for i in range(len(sorted_dates) - 1):
                 date_a = sorted_dates[i]
                 date_b = sorted_dates[i + 1]
+
+                if date_b < first_date:
+                    continue
 
                 if _next_date(date_a) != date_b:
                     continue
@@ -73,8 +77,6 @@ class MinRestBetweenShifts(Rule):
                 end_a = _shift_end_minutes(shift_a)
                 start_b = _shift_start_minutes(shift_b)
 
-                # Rest = time from end of day A to start of day B
-                # Since they're consecutive days: rest = (24*60 - end_a) + start_b
                 rest_minutes = (24 * 60 - end_a) + start_b
 
                 if rest_minutes < min_minutes:
@@ -96,11 +98,12 @@ class MinRestBetweenShifts(Rule):
     ) -> None:
         config = self.get_config(ctx)
         min_minutes = config["params"]["min_hours"] * 60
+        dates = v.context_dates or v.dates
 
         for emp_id in v.employee_ids:
-            for i in range(len(v.dates) - 1):
-                date_a = v.dates[i]
-                date_b = v.dates[i + 1]
+            for i in range(len(dates) - 1):
+                date_a = dates[i]
+                date_b = dates[i + 1]
 
                 if _next_date(date_a) != date_b:
                     continue
@@ -120,7 +123,6 @@ class MinRestBetweenShifts(Rule):
                         rest = (24 * 60 - end_a) + start_b
 
                         if rest < min_minutes:
-                            # These two shifts on consecutive days violate rest
                             model.Add(
                                 v.shifts[emp_id][date_a][sid_a]
                                 + v.shifts[emp_id][date_b][sid_b]
@@ -142,9 +144,10 @@ class MinConsecutiveFreeDays(Rule):
         config = self.get_config(ctx)
         min_days = config["params"]["min_days"]
         violations = []
+        first_date = f"{ctx.year}-{ctx.month:02d}-01"
 
-        all_dates = _all_dates(ctx.year, ctx.month)
-        assignments_by_emp = _group_by_employee(ctx.assignments)
+        all_dates = _context_dates(ctx)
+        assignments_by_emp = _group_by_employee(_all_assignments(ctx))
 
         for emp in ctx.employees:
             working_dates = set()
@@ -162,7 +165,7 @@ class MinConsecutiveFreeDays(Rule):
                         streak_start = date_str
                     free_streak += 1
                 else:
-                    if 0 < free_streak < min_days:
+                    if 0 < free_streak < min_days and date_str >= first_date:
                         severity = "grave" if config["priority"] == "mandatory" else "warning"
                         violations.append(Violation(
                             rule_id=self.id,
@@ -185,9 +188,11 @@ class MinConsecutiveFreeDays(Rule):
         if min_days < 2:
             return
 
+        dates = v.context_dates or v.dates
+
         for emp_id in v.employee_ids:
-            for i in range(len(v.dates) - 2):
-                window = v.dates[i : i + 3]
+            for i in range(len(dates) - 2):
+                window = dates[i : i + 3]
                 all_consecutive = all(
                     _next_date(window[j]) == window[j + 1]
                     for j in range(len(window) - 1)
@@ -195,9 +200,6 @@ class MinConsecutiveFreeDays(Rule):
                 if not all_consecutive:
                     continue
 
-                # Forbid work-free-work pattern (isolated single free day)
-                # works[A] + (1 - works[B]) + works[C] <= 2
-                # → works[A] - works[B] + works[C] <= 1
                 model.Add(
                     v.works[emp_id][window[0]]
                     - v.works[emp_id][window[1]]
@@ -219,11 +221,12 @@ class WeeklyRest(Rule):
     def validate(self, ctx: ScheduleContext) -> list[Violation]:
         config = self.get_config(ctx)
         min_days = config["params"]["min_days"]
-        min_free = int(min_days)  # Use floor for validation (1.5 → at least 1)
+        min_free = int(min_days)
         violations = []
+        first_date = f"{ctx.year}-{ctx.month:02d}-01"
 
-        all_dates = _all_dates(ctx.year, ctx.month)
-        assignments_by_emp = _group_by_employee(ctx.assignments)
+        all_dates = _context_dates(ctx)
+        assignments_by_emp = _group_by_employee(_all_assignments(ctx))
 
         for emp in ctx.employees:
             working_dates = set()
@@ -234,7 +237,9 @@ class WeeklyRest(Rule):
             for i in range(len(all_dates) - 6):
                 window = all_dates[i:i + 7]
 
-                # Check all dates are consecutive
+                if window[-1] < first_date:
+                    continue
+
                 if _next_date(window[-2]) != window[-1]:
                     continue
 
@@ -257,10 +262,11 @@ class WeeklyRest(Rule):
     ) -> None:
         config = self.get_config(ctx)
         min_free = int(config["params"]["min_days"])
+        dates = v.context_dates or v.dates
 
         for emp_id in v.employee_ids:
-            for i in range(len(v.dates) - 6):
-                window = v.dates[i:i + 7]
+            for i in range(len(dates) - 6):
+                window = dates[i:i + 7]
 
                 all_consecutive = all(
                     _next_date(window[j]) == window[j + 1]
@@ -269,7 +275,7 @@ class WeeklyRest(Rule):
 
                 if all_consecutive:
                     free_days = [
-                        model.NewBoolVar(f"free_{emp_id}_{d}")
+                        model.NewBoolVar(f"free_{emp_id}_{i}_{d}")
                         for d in window
                     ]
                     for j, d in enumerate(window):
@@ -294,8 +300,9 @@ class MaxConsecutiveDays(Rule):
         config = self.get_config(ctx)
         max_days = config["params"]["max_days"]
         violations = []
+        first_date = f"{ctx.year}-{ctx.month:02d}-01"
 
-        assignments_by_emp = _group_by_employee(ctx.assignments)
+        assignments_by_emp = _group_by_employee(_all_assignments(ctx))
 
         for emp_id, emp_assignments in assignments_by_emp.items():
             working_dates = {
@@ -319,7 +326,7 @@ class MaxConsecutiveDays(Rule):
                     consecutive = 1
                     streak_start = date_str
 
-                if consecutive > max_days:
+                if consecutive > max_days and date_str >= first_date:
                     emp_name = _get_employee_name(ctx.employees, emp_id)
                     severity = "grave" if config["priority"] == "mandatory" else "warning"
                     violations.append(Violation(
@@ -338,13 +345,12 @@ class MaxConsecutiveDays(Rule):
     ) -> None:
         config = self.get_config(ctx)
         max_days = config["params"]["max_days"]
+        dates = v.context_dates or v.dates
 
         for emp_id in v.employee_ids:
-            # Sliding window: in any (max_days + 1) consecutive days, at least one must be free
-            for i in range(len(v.dates) - max_days):
-                window_dates = v.dates[i : i + max_days + 1]
+            for i in range(len(dates) - max_days):
+                window_dates = dates[i : i + max_days + 1]
 
-                # Check they're actually consecutive
                 all_consecutive = all(
                     _next_date(window_dates[j]) == window_dates[j + 1]
                     for j in range(len(window_dates) - 1)
@@ -425,15 +431,16 @@ class MaxWeeklyHours(Rule):
     def validate(self, ctx: ScheduleContext) -> list[Violation]:
         config = self.get_config(ctx)
         violations = []
+        merged = _all_assignments(ctx)
 
         for emp in ctx.employees:
             max_hours = emp["max_hours_per_week"]
-            weeks = _group_by_week(ctx.year, ctx.month)
+            weeks = _group_by_week_from_dates(_context_dates(ctx))
 
             for week_num, week_dates in weeks.items():
                 total = 0.0
                 for date_str in week_dates:
-                    assignment = _find_assignment(ctx.assignments, date_str, emp["id"])
+                    assignment = _find_assignment(merged, date_str, emp["id"])
                     if assignment and assignment["shift_type_id"] is not None:
                         shift = _get_shift_by_id(ctx.shift_types, assignment["shift_type_id"])
                         if shift:
@@ -482,6 +489,17 @@ class MaxWeeklyHours(Rule):
 
 
 # --- Helper functions ---
+
+
+def _all_assignments(ctx: ScheduleContext) -> list[dict]:
+    """Merge previous month context with current assignments."""
+    return ctx.prev_assignments + ctx.assignments
+
+
+def _context_dates(ctx: ScheduleContext) -> list[str]:
+    """Previous context dates + current month dates, sorted."""
+    prev_dates = sorted({a["date"] for a in ctx.prev_assignments})
+    return prev_dates + _all_dates(ctx.year, ctx.month)
 
 
 def _group_by_employee(assignments: list[dict]) -> dict[int, list[dict]]:
@@ -549,8 +567,13 @@ def _available_by_date(ctx: ScheduleContext) -> dict[str, list[int]]:
 
 def _group_by_week(year: int, month: int) -> dict[int, list[str]]:
     """Group dates by ISO week number."""
+    return _group_by_week_from_dates(_all_dates(year, month))
+
+
+def _group_by_week_from_dates(dates: list[str]) -> dict[int, list[str]]:
+    """Group arbitrary date list by ISO week number."""
     weeks: dict[int, list[str]] = {}
-    for date_str in _all_dates(year, month):
+    for date_str in dates:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         week_num = dt.isocalendar()[1]
         weeks.setdefault(week_num, []).append(date_str)

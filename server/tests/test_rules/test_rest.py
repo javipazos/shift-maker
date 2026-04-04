@@ -16,7 +16,7 @@ EMPLOYEES = [
 ]
 
 
-def _ctx(assignments, rules_config=None):
+def _ctx(assignments, rules_config=None, prev_assignments=None):
     return ScheduleContext(
         year=2026, month=3,
         employees=EMPLOYEES,
@@ -24,6 +24,7 @@ def _ctx(assignments, rules_config=None):
         absences=[],
         assignments=assignments,
         rules_config=rules_config or {},
+        prev_assignments=prev_assignments or [],
     )
 
 
@@ -192,6 +193,82 @@ class TestMaxConsecutiveDays:
         violations = self.rule.validate(_ctx(assignments))
         assert len(violations) == 1
         assert violations[0].employee_id == 1
+
+
+class TestCrossMonthRestViolation:
+    """Verify rules detect violations that span the month boundary."""
+
+    rule_rest = MinRestBetweenShifts()
+    rule_consecutive = MaxConsecutiveDays()
+    rule_weekly = WeeklyRest()
+
+    def test_rest_violation_across_month_boundary(self):
+        """Afternoon on Feb 28 + Morning on Mar 1 = 9h rest. Violation."""
+        prev = [
+            {"date": "2026-02-28", "employee_id": 1, "shift_type_id": 2},
+        ]
+        current = [
+            {"date": "2026-03-01", "employee_id": 1, "shift_type_id": 1},
+        ]
+        violations = self.rule_rest.validate(_ctx(current, prev_assignments=prev))
+
+        emp1 = [v for v in violations if v.employee_id == 1]
+        assert len(emp1) == 1
+        assert emp1[0].date == "2026-03-01"
+
+    def test_no_false_positive_across_boundary(self):
+        """Morning on Feb 28 + Morning on Mar 1 = 16.5h rest. OK."""
+        prev = [
+            {"date": "2026-02-28", "employee_id": 1, "shift_type_id": 1},
+        ]
+        current = [
+            {"date": "2026-03-01", "employee_id": 1, "shift_type_id": 1},
+        ]
+        violations = self.rule_rest.validate(_ctx(current, prev_assignments=prev))
+        assert len(violations) == 0
+
+    def test_consecutive_days_across_boundary(self):
+        """4 days in Feb + 3 in Mar = 7 consecutive. Violation on day 7."""
+        prev = [
+            {"date": f"2026-02-{d:02d}", "employee_id": 1, "shift_type_id": 1}
+            for d in range(25, 29)
+        ]
+        current = [
+            {"date": f"2026-03-{d:02d}", "employee_id": 1, "shift_type_id": 1}
+            for d in range(1, 4)
+        ]
+        violations = self.rule_consecutive.validate(_ctx(current, prev_assignments=prev))
+
+        emp1 = [v for v in violations if v.employee_id == 1]
+        assert len(emp1) == 1
+        assert emp1[0].date == "2026-03-03"
+
+    def test_consecutive_days_under_limit_across_boundary(self):
+        """3 days in Feb + 3 in Mar = 6 consecutive. OK (default max=6)."""
+        prev = [
+            {"date": f"2026-02-{d:02d}", "employee_id": 1, "shift_type_id": 1}
+            for d in range(26, 29)
+        ]
+        current = [
+            {"date": f"2026-03-{d:02d}", "employee_id": 1, "shift_type_id": 1}
+            for d in range(1, 4)
+        ]
+        violations = self.rule_consecutive.validate(_ctx(current, prev_assignments=prev))
+        emp1 = [v for v in violations if v.employee_id == 1]
+        assert len(emp1) == 0
+
+    def test_prev_violations_not_reported(self):
+        """Violations entirely in prev month should not appear."""
+        prev = [
+            {"date": "2026-02-27", "employee_id": 1, "shift_type_id": 2},
+            {"date": "2026-02-28", "employee_id": 1, "shift_type_id": 1},
+        ]
+        current = [
+            {"date": "2026-03-05", "employee_id": 1, "shift_type_id": 1},
+        ]
+        violations = self.rule_rest.validate(_ctx(current, prev_assignments=prev))
+        current_month = [v for v in violations if v.date >= "2026-03-01"]
+        assert len(current_month) == 0
 
 
 class TestMinConsecutiveFreeDays:

@@ -21,7 +21,7 @@ RELAXED_CONFIG = {
 }
 
 
-def _ctx(employees=None, absences=None, rules_config=None):
+def _ctx(employees=None, absences=None, rules_config=None, prev_assignments=None):
     return ScheduleContext(
         year=2026, month=3,
         employees=employees or EMPLOYEES,
@@ -29,6 +29,7 @@ def _ctx(employees=None, absences=None, rules_config=None):
         absences=absences or [],
         assignments=[],
         rules_config=rules_config or RELAXED_CONFIG,
+        prev_assignments=prev_assignments or [],
     )
 
 
@@ -118,6 +119,34 @@ def test_solver_respects_fixed_free_day():
         if a["employee_id"] == 2 and a["date"] == "2026-03-10"
     )
     assert carlos_mar10["shift_type_id"] is None
+
+
+def test_solver_avoids_rest_violation_with_prev_context():
+    """If prev month ends with afternoon shift, solver should not assign morning on day 1."""
+    prev = [
+        {"date": "2026-02-28", "employee_id": 1, "shift_type_id": 2},
+    ]
+    result = solve_schedule(_ctx(prev_assignments=prev))
+
+    assert result.status in ("optimal", "feasible")
+    ana_mar1 = next(
+        a for a in result.assignments
+        if a["employee_id"] == 1 and a["date"] == "2026-03-01"
+    )
+    # Should NOT be morning (shift 1) because afternoon→morning = 9h rest < 12h min
+    assert ana_mar1["shift_type_id"] != 1
+
+
+def test_solver_prev_context_not_in_output():
+    """Previous month dates should not appear in solver output."""
+    prev = [
+        {"date": "2026-02-28", "employee_id": 1, "shift_type_id": 2},
+    ]
+    result = solve_schedule(_ctx(prev_assignments=prev))
+
+    output_dates = {a["date"] for a in result.assignments}
+    assert "2026-02-28" not in output_dates
+    assert all(d.startswith("2026-03") for d in output_dates)
 
 
 def test_solver_respects_multiple_fixed():

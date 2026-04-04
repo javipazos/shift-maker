@@ -73,9 +73,17 @@ def _build_variables(
 ) -> SolverVars:
     from app.rules.rest import _all_dates, _is_weekend
 
-    dates = _all_dates(ctx.year, ctx.month)
+    current_dates = _all_dates(ctx.year, ctx.month)
     emp_ids = [e["id"] for e in ctx.employees]
     shift_ids = [st["id"] for st in ctx.shift_types]
+
+    prev_dates = sorted({a["date"] for a in ctx.prev_assignments})
+    all_dates = prev_dates + current_dates
+    prev_date_set = set(prev_dates)
+
+    prev_lookup: dict[tuple[int, str], int | None] = {}
+    for a in ctx.prev_assignments:
+        prev_lookup[(a["employee_id"], a["date"])] = a["shift_type_id"]
 
     absent_set = _build_absent_set(ctx)
 
@@ -86,11 +94,19 @@ def _build_variables(
         shifts[emp_id] = {}
         works[emp_id] = {}
 
-        for date in dates:
+        for date in all_dates:
             shifts[emp_id][date] = {}
 
-            if (emp_id, date) in absent_set:
-                # Absent: force all shift vars to 0
+            if date in prev_date_set:
+                prev_sid = prev_lookup.get((emp_id, date))
+                for sid in shift_ids:
+                    shifts[emp_id][date][sid] = model.NewConstant(
+                        1 if prev_sid == sid else 0
+                    )
+                works[emp_id][date] = model.NewConstant(
+                    1 if prev_sid is not None else 0
+                )
+            elif (emp_id, date) in absent_set:
                 for sid in shift_ids:
                     shifts[emp_id][date][sid] = model.NewConstant(0)
                 works[emp_id][date] = model.NewConstant(0)
@@ -104,9 +120,10 @@ def _build_variables(
     return SolverVars(
         shifts=shifts,
         works=works,
-        dates=dates,
+        dates=current_dates,
         employee_ids=emp_ids,
         shift_type_ids=shift_ids,
+        context_dates=all_dates,
     )
 
 
@@ -120,12 +137,10 @@ def _add_basic_constraints(
             if (emp_id, date) in absent_set:
                 continue
 
-            # At most one shift per employee per day
             model.Add(
                 sum(v.shifts[emp_id][date][sid] for sid in v.shift_type_ids) <= 1
             )
 
-            # works[emp][date] = 1 iff any shift is assigned
             model.Add(
                 sum(v.shifts[emp_id][date][sid] for sid in v.shift_type_ids)
                 == v.works[emp_id][date]

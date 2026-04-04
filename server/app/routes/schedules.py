@@ -156,6 +156,36 @@ def update_schedule_status(
     return dict(row)
 
 
+def _fetch_prev_assignments(year: int, month: int, db: DbConn) -> list[dict]:
+    """Fetch last 7 days of previous month's schedule for cross-month continuity."""
+    import calendar
+
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+
+    schedule = db.execute(
+        "SELECT id FROM schedules WHERE year = ? AND month = ?",
+        (prev_year, prev_month),
+    ).fetchone()
+
+    if not schedule:
+        return []
+
+    days_in_prev = calendar.monthrange(prev_year, prev_month)[1]
+    start_day = max(1, days_in_prev - 6)
+    start_date = f"{prev_year}-{prev_month:02d}-{start_day:02d}"
+
+    return [
+        dict(r) for r in db.execute(
+            "SELECT date, employee_id, shift_type_id FROM assignments "
+            "WHERE schedule_id = ? AND date >= ? ORDER BY date",
+            (schedule["id"], start_date),
+        ).fetchall()
+    ]
+
+
 def _build_schedule_context(
     year: int, month: int, assignments: list[dict], db: DbConn
 ) -> ScheduleContext:
@@ -185,6 +215,8 @@ def _build_schedule_context(
             "active": bool(r["active"]),
         }
 
+    prev_assignments = _fetch_prev_assignments(year, month, db)
+
     return ScheduleContext(
         year=year,
         month=month,
@@ -193,6 +225,7 @@ def _build_schedule_context(
         absences=absences,
         assignments=assignments,
         rules_config=rules_config,
+        prev_assignments=prev_assignments,
     )
 
 

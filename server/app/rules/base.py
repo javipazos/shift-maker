@@ -26,6 +26,7 @@ class ScheduleContext:
     absences: list[dict]
     assignments: list[dict]
     rules_config: dict[str, dict]
+    prev_assignments: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -39,6 +40,8 @@ class SolverVars:
     dates: list[str]
     employee_ids: list[int]
     shift_type_ids: list[int]
+    # Extended range including previous month context (for rest rules)
+    context_dates: list[str] = field(default_factory=list)
 
 
 class Rule(ABC):
