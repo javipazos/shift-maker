@@ -251,7 +251,7 @@ function AppContent() {
                 className="btn-export"
                 onClick={() => setIcsMenuOpen(!icsMenuOpen)}
               >
-                Exportar .ics
+                Exportar calendario
                 <span className={`ics-chevron ${icsMenuOpen ? 'ics-chevron-open' : ''}`}>▾</span>
               </button>
               {icsMenuOpen && (
