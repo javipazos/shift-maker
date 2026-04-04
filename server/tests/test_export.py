@@ -119,7 +119,7 @@ def test_export_ics_produces_valid_vcalendar():
     assert result.count("BEGIN:VEVENT") == 2
 
 
-def test_export_ics_event_has_correct_times():
+def test_export_ics_event_has_correct_times_and_uid():
     assignments = [
         {"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1},
     ]
@@ -128,6 +128,7 @@ def test_export_ics_event_has_correct_times():
     assert "DTSTART:20260302T070000" in result
     assert "DTEND:20260302T143000" in result
     assert "SUMMARY:Mañana" in result
+    assert "UID:20260302-1-1@shiftmaker" in result
 
 
 def test_export_ics_skips_free_days():

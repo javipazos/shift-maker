@@ -166,8 +166,10 @@ def export_ics(
         date_str = assignment["date"].replace("-", "")
         start = shift["start_time"].replace(":", "")
         end = shift["end_time"].replace(":", "")
+        uid = f"{date_str}-{employee['id']}-{shift['id']}@shiftmaker"
         lines += [
             "BEGIN:VEVENT",
+            f"UID:{uid}",
             f"DTSTART:{date_str}T{start}00",
             f"DTEND:{date_str}T{end}00",
             f"SUMMARY:{shift['name']}",
