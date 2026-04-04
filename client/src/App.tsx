@@ -4,7 +4,7 @@ import './styles/layout.css'
 import './styles/grid.css'
 import './styles/validation.css'
 import './styles/forms.css'
-import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteSchedule, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, fetchRules, generateSchedule, setTokenGetter, updateEmployee, updateRule, updateShiftType } from './api/client'
+import { createAbsence, createEmployee, createShiftType, deleteAbsence, deleteEmployee, deleteSchedule, deleteShiftType, fetchAllEmployees, fetchAllShiftTypes, fetchRules, generateSchedule, importSchedule, setTokenGetter, updateEmployee, updateRule, updateShiftType } from './api/client'
 import type { Employee, Rule, ShiftType } from './api/types'
 import { AbsenceForm } from './components/absences/AbsenceForm'
 import { EmployeeForm } from './components/config/EmployeeForm'
@@ -195,6 +195,8 @@ function AppContent() {
   }
 
   const [icsMenuOpen, setIcsMenuOpen] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importWarnings, setImportWarnings] = useState<string[]>([])
 
   function handleExport() {
     window.open(`/api/schedules/${year}/${month}/export`, '_blank')
@@ -203,6 +205,25 @@ function AppContent() {
   function handleExportIcs(employeeId: number) {
     window.open(`/api/schedules/${year}/${month}/export-ics/${employeeId}`, '_blank')
     setIcsMenuOpen(false)
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setImportError(null)
+    setImportWarnings([])
+
+    try {
+      const result = await importSchedule(year, month, file)
+      if (result.warnings.length > 0) {
+        setImportWarnings(result.warnings)
+      }
+      await schedule.reload()
+      await validation.validate()
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Error al importar')
+    }
   }
 
   async function handleClearSchedule() {
@@ -240,6 +261,26 @@ function AppContent() {
         )}
         {!hasPins && schedule.schedule && (
           <p className="sidebar-hint">Haz clic en el punto azul de una celda para fijarla antes de regenerar.</p>
+        )}
+        <label className="btn-export btn-import-label">
+          Importar .xlsx
+          <input
+            type="file"
+            accept=".xlsx"
+            onChange={handleImport}
+            hidden
+          />
+        </label>
+        {importError && (
+          <p className="sidebar-error">{importError}</p>
+        )}
+        {importWarnings.length > 0 && (
+          <details className="import-warnings">
+            <summary>{importWarnings.length} aviso{importWarnings.length !== 1 ? 's' : ''}</summary>
+            <ul>
+              {importWarnings.map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
+          </details>
         )}
         {schedule.schedule && (
           <>

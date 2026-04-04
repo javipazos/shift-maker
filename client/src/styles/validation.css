@@ -154,6 +154,30 @@
   background: var(--color-bg-secondary);
 }
 
+.btn-import-label {
+  cursor: pointer;
+  text-align: center;
+}
+
+.import-warnings {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning, #b58105);
+}
+
+.import-warnings summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.import-warnings ul {
+  margin: var(--spacing-xs) 0 0;
+  padding-left: var(--spacing-md);
+}
+
+.import-warnings li {
+  margin-bottom: var(--spacing-xs);
+}
+
 .ics-export-group {
   position: relative;
   width: 100%;

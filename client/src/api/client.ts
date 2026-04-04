@@ -131,6 +131,21 @@ export function deleteEmployee(id: number): Promise<void> {
   return del(`/employees/${id}`)
 }
 
+export async function importSchedule(
+  year: number,
+  month: number,
+  file: File,
+): Promise<{ assignments: Assignment[]; warnings: string[] }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await apiFetch(`/schedules/${year}/${month}/import`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}
+
 export function fetchRules(): Promise<Rule[]> {
   return fetchJson('/rules')
 }

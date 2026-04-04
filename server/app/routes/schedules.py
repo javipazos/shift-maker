@@ -1,6 +1,7 @@
 import json
+from io import BytesIO
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from app.deps import DbConn, get_db
 from app.models import (
@@ -337,6 +338,68 @@ def generate(
         "score": result.score,
         "solve_time_ms": result.solve_time_ms,
         "relaxed_rules": result.relaxed_rules,
+    }
+
+
+@router.post("/{year}/{month}/import")
+async def import_schedule(
+    year: int,
+    month: int,
+    file: UploadFile,
+    db: DbConn = Depends(get_db),
+):
+    from app.services.importer import parse_schedule_xlsx
+
+    employees = [
+        dict(r) for r in db.execute(
+            "SELECT * FROM employees WHERE status = 'active'"
+        ).fetchall()
+    ]
+    shift_types = [
+        dict(r) for r in db.execute(
+            "SELECT * FROM shift_types WHERE status = 'active' ORDER BY priority_order"
+        ).fetchall()
+    ]
+
+    content = await file.read()
+    result = parse_schedule_xlsx(BytesIO(content), employees, shift_types, year, month)
+
+    if result.errors:
+        raise HTTPException(status_code=400, detail=result.errors)
+
+    existing = db.execute(
+        "SELECT * FROM schedules WHERE year = ? AND month = ?",
+        (year, month),
+    ).fetchone()
+
+    if not existing:
+        db.execute(
+            "INSERT INTO schedules (year, month) VALUES (?, ?)",
+            (year, month),
+        )
+        db.commit()
+        existing = db.execute(
+            "SELECT * FROM schedules WHERE year = ? AND month = ?",
+            (year, month),
+        ).fetchone()
+
+    schedule_id = existing["id"]
+
+    db.execute("DELETE FROM assignments WHERE schedule_id = ?", (schedule_id,))
+    for a in result.assignments:
+        db.execute(
+            "INSERT INTO assignments (schedule_id, date, employee_id, shift_type_id) VALUES (?, ?, ?, ?)",
+            (schedule_id, a["date"], a["employee_id"], a["shift_type_id"]),
+        )
+    db.execute(
+        "UPDATE schedules SET updated_at = datetime('now') WHERE id = ?",
+        (schedule_id,),
+    )
+    db.commit()
+
+    return {
+        "assignments": result.assignments,
+        "warnings": result.warnings,
     }
 
 
