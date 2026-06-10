@@ -26,7 +26,7 @@ def solve_schedule(
     model = cp_model.CpModel()
     solver_vars = _build_variables(model, ctx)
     _add_basic_constraints(model, solver_vars, ctx)
-    _add_fixed_constraints(model, solver_vars, fixed or [])
+    _add_fixed_constraints(model, solver_vars, _drop_fixed_on_absent_days(fixed or [], ctx))
     _add_rule_constraints(model, solver_vars, ctx)
     _add_objective(model, solver_vars, ctx)
 
@@ -46,6 +46,7 @@ def solve_schedule(
             absences=ctx.absences,
             assignments=assignments,
             rules_config=ctx.rules_config,
+            prev_assignments=ctx.prev_assignments,
         )
         violations = validate_schedule(solve_ctx)
         score = _compute_score(violations)
@@ -56,7 +57,7 @@ def solve_schedule(
             violations=violations,
             score=score,
             solve_time_ms=round(elapsed_ms, 1),
-            relaxed_rules=[],
+            relaxed_rules=_collect_relaxed_rules(solver, solver_vars),
         )
 
     return SolveResult(
@@ -148,6 +149,17 @@ def _add_basic_constraints(
             )
 
 
+def _drop_fixed_on_absent_days(
+    fixed: list[dict], ctx: ScheduleContext
+) -> list[dict]:
+    # Pinning a shift where there is an absence would force constant 0 == 1
+    # and make the whole model infeasible — the absence wins.
+    absent_set = _build_absent_set(ctx)
+    return [
+        f for f in fixed if (f["employee_id"], f["date"]) not in absent_set
+    ]
+
+
 def _add_fixed_constraints(
     model: cp_model.CpModel, v: SolverVars, fixed: list[dict]
 ) -> None:
@@ -200,8 +212,31 @@ def _add_objective(
 
     # Primary: maximize total work days (weight = num_dates + 1 so one extra
     # work day always beats any spread reduction)
+    # Relaxing a desirable rule costs its weight in work-day units, so a
+    # weight-7 rule is only sacrificed to gain more than 7 work days
     # Secondary: minimize spread between employees
-    model.Minimize(-total_all * (num_dates + 1) + spread)
+    penalties = sum(_penalty_terms(v, ctx))
+    model.Minimize(-total_all * (num_dates + 1) + spread + penalties)
+
+
+def _penalty_terms(v: SolverVars, ctx: ScheduleContext) -> list:
+    from app.rules.registry import get_rule
+
+    one_work_day = len(v.dates) + 1
+    terms = []
+    for rule_id, violations in v.penalties.items():
+        rule = get_rule(rule_id)
+        weight = rule.get_config(ctx)["weight"] if rule else 1
+        terms.extend(var * weight * one_work_day for var in violations)
+    return terms
+
+
+def _collect_relaxed_rules(solver: cp_model.CpSolver, v: SolverVars) -> list[str]:
+    return sorted(
+        rule_id
+        for rule_id, violations in v.penalties.items()
+        if any(solver.Value(var) == 1 for var in violations)
+    )
 
 
 def _extract_assignments(

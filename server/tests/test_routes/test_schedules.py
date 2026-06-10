@@ -116,6 +116,41 @@ def test_generate_without_fixed_assignments(client):
     assert response.json()["status"] in ("optimal", "feasible")
 
 
+def test_generate_infeasible_reports_status_and_keeps_assignments(client):
+    client.post("/api/schedules/2026/3")
+    client.put("/api/schedules/2026/3/assignments", json={
+        "assignments": [
+            {"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1},
+        ]
+    })
+
+    client.put("/api/rules/min_daily_coverage", json={
+        "params": {"weekday_min": 10, "weekend_min": 10}
+    })
+
+    response = client.post("/api/schedules/2026/3/generate")
+    assert response.status_code == 200
+    assert response.json()["status"] == "infeasible"
+
+    data = client.get("/api/schedules/2026/3").json()
+    assert len(data["assignments"]) == 1
+    assert data["assignments"][0]["shift_type_id"] == 1
+
+
+def test_generate_relaxes_rule_demoted_to_desirable(client):
+    client.put("/api/rules/min_daily_coverage", json={
+        "priority": "desirable",
+        "params": {"weekday_min": 10, "weekend_min": 10},
+    })
+
+    response = client.post("/api/schedules/2026/3/generate")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] in ("optimal", "feasible")
+    assert "min_daily_coverage" in data["relaxed_rules"]
+
+
 def test_delete_schedule(client):
     client.post("/api/schedules/2026/3")
     response = client.delete("/api/schedules/2026/3")

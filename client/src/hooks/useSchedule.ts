@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchSchedule, fetchEmployees, fetchShiftTypes, fetchAbsences, createSchedule, saveAssignments } from '../api/client'
 import type { Absence, Assignment, Employee, Schedule, ShiftType } from '../api/types'
+import { buildPinnedAssignments, pinKey, type PinnedCell } from './pins'
 
 interface ScheduleState {
   schedule: Schedule | null
@@ -8,15 +9,11 @@ interface ScheduleState {
   employees: Employee[]
   shiftTypes: ShiftType[]
   absences: Absence[]
-  pinned: Set<string>
+  pinned: Map<string, PinnedCell>
   loading: boolean
   saving: boolean
   dirty: boolean
   error: string | null
-}
-
-function pinKey(date: string, employeeId: number): string {
-  return `${date}-${employeeId}`
 }
 
 export function useSchedule(year: number, month: number) {
@@ -26,7 +23,7 @@ export function useSchedule(year: number, month: number) {
     employees: [],
     shiftTypes: [],
     absences: [],
-    pinned: new Set(),
+    pinned: new Map(),
     loading: true,
     saving: false,
     dirty: false,
@@ -43,18 +40,20 @@ export function useSchedule(year: number, month: number) {
         fetchAbsences(year, month),
       ])
 
-      setState({
+      // Pins survive reloads (regenerate, absences, saves) on purpose:
+      // the user clears them explicitly or by changing month
+      setState(prev => ({
         schedule: scheduleData.schedule,
         assignments: scheduleData.assignments,
         employees,
         shiftTypes,
         absences,
-        pinned: new Set(),
+        pinned: prev.pinned,
         loading: false,
         saving: false,
         dirty: false,
         error: null,
-      })
+      }))
     } catch (e) {
       setState(prev => ({
         ...prev,
@@ -65,6 +64,10 @@ export function useSchedule(year: number, month: number) {
   }, [year, month])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    setState(prev => ({ ...prev, pinned: new Map() }))
+  }, [year, month])
 
   const ensureSchedule = useCallback(async () => {
     if (!state.schedule) {
@@ -86,18 +89,18 @@ export function useSchedule(year: number, month: number) {
   const togglePin = useCallback((date: string, employeeId: number) => {
     setState(prev => {
       const key = pinKey(date, employeeId)
-      const next = new Set(prev.pinned)
+      const next = new Map(prev.pinned)
       if (next.has(key)) {
         next.delete(key)
       } else {
-        next.add(key)
+        next.set(key, { date, employeeId })
       }
       return { ...prev, pinned: next }
     })
   }, [])
 
   const clearPins = useCallback(() => {
-    setState(prev => ({ ...prev, pinned: new Set() }))
+    setState(prev => ({ ...prev, pinned: new Map() }))
   }, [])
 
   const isPinned = useCallback((date: string, employeeId: number): boolean => {
@@ -105,9 +108,7 @@ export function useSchedule(year: number, month: number) {
   }, [state.pinned])
 
   const getPinnedAssignments = useCallback((): Assignment[] => {
-    return state.assignments.filter(a =>
-      state.pinned.has(pinKey(a.date, a.employee_id))
-    )
+    return buildPinnedAssignments(state.pinned, state.assignments)
   }, [state.assignments, state.pinned])
 
   const save = useCallback(async () => {

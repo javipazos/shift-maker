@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -42,6 +43,9 @@ class SolverVars:
     shift_type_ids: list[int]
     # Extended range including previous month context (for rest rules)
     context_dates: list[str] = field(default_factory=list)
+    # rule_id -> violation indicators for relaxed desirable rules,
+    # penalized in the objective by the rule's weight
+    penalties: dict[str, list[Any]] = field(default_factory=dict)
 
 
 class Rule(ABC):
@@ -75,3 +79,30 @@ class Rule(ABC):
         self, model: cp_model.CpModel, vars: SolverVars, ctx: ScheduleContext
     ) -> None:
         """Add CP-SAT constraints for this rule."""
+
+    def make_enforcer(
+        self, model: cp_model.CpModel, vars: SolverVars, ctx: ScheduleContext
+    ) -> Callable[[Any], None]:
+        """Mandatory rules stay hard; desirable rules become relaxable at a
+        weighted penalty so an impossible preference never blocks the solve."""
+        if self.get_config(ctx)["priority"] == "mandatory":
+            return _keep_hard
+
+        def relax_at_cost(constraint: Any) -> None:
+            violation = _new_violation_var(model, vars, self.id)
+            constraint.OnlyEnforceIf(violation.Not())
+
+        return relax_at_cost
+
+
+def _keep_hard(constraint: Any) -> None:
+    """model.Add() already applied the constraint unconditionally."""
+
+
+def _new_violation_var(
+    model: cp_model.CpModel, vars: SolverVars, rule_id: str
+) -> Any:
+    violations = vars.penalties.setdefault(rule_id, [])
+    var = model.NewBoolVar(f"viol_{rule_id}_{len(violations)}")
+    violations.append(var)
+    return var

@@ -116,7 +116,15 @@ function AppContent() {
     setGenerateError(null)
     try {
       const fixed = schedule.getPinnedAssignments()
-      await generateSchedule(year, month, fixed.length > 0 ? fixed : undefined)
+      const result = await generateSchedule(year, month, fixed.length > 0 ? fixed : undefined)
+      if (result.status === 'infeasible') {
+        setGenerateError(
+          fixed.length > 0
+            ? 'No existe ningún horario que cumpla las reglas con esas celdas fijadas. El horario actual no se ha modificado.'
+            : 'No existe ningún horario que cumpla todas las reglas activas. Revisa las reglas o las ausencias. El horario actual no se ha modificado.'
+        )
+        return
+      }
       await schedule.reload()
       await validation.validate()
     } catch (e) {

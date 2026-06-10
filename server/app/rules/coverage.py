@@ -61,6 +61,7 @@ class WeekendShiftCoverage(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
 
         for date_str in v.dates:
             if not _is_weekend(date_str):
@@ -71,14 +72,14 @@ class WeekendShiftCoverage(Rule):
                 if not target or target["id"] not in v.shift_type_ids:
                     continue
 
-                model.Add(
+                enforce(model.Add(
                     sum(
                         v.shifts[eid][date_str][target["id"]]
                         for eid in v.employee_ids
                         if date_str in v.shifts.get(eid, {})
                     )
                     >= 1
-                )
+                ))
 
 
 class MinPerShiftCoverage(Rule):
@@ -120,19 +121,19 @@ class MinPerShiftCoverage(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
         min_per = config["params"]["min_per_shift"]
 
-        if config["priority"] == "mandatory":
-            for date_str in v.dates:
-                for sid in v.shift_type_ids:
-                    model.Add(
-                        sum(
-                            v.shifts[eid][date_str][sid]
-                            for eid in v.employee_ids
-                            if date_str in v.shifts.get(eid, {})
-                        )
-                        >= min_per
+        for date_str in v.dates:
+            for sid in v.shift_type_ids:
+                enforce(model.Add(
+                    sum(
+                        v.shifts[eid][date_str][sid]
+                        for eid in v.employee_ids
+                        if date_str in v.shifts.get(eid, {})
                     )
+                    >= min_per
+                ))
 
 
 class PriorityShiftCoverage(Rule):
@@ -180,6 +181,7 @@ class PriorityShiftCoverage(Rule):
     def add_constraints(
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
+        enforce = self.make_enforcer(model, v, ctx)
         sorted_shifts = sorted(ctx.shift_types, key=lambda s: s["priority_order"])
 
         for date_str in v.dates:
@@ -202,7 +204,7 @@ class PriorityShiftCoverage(Rule):
                 )
 
                 # high priority must be >= low priority in coverage
-                model.Add(high_covered >= low_covered)
+                enforce(model.Add(high_covered >= low_covered))
 
 
 def _find_shift_by_keyword(shift_types: list[dict], keyword: str) -> dict | None:

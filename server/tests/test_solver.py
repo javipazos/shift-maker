@@ -177,6 +177,139 @@ def test_solver_does_not_under_schedule():
         assert count >= 15, f"Employee {emp_id} only works {count} days"
 
 
+def test_solver_relaxes_desirable_rule_instead_of_failing():
+    """2 employees + weekend coverage of 2 means nobody can have a free
+    weekend; the desirable monthly_free_weekend rule must be relaxed
+    instead of making the whole schedule infeasible."""
+    config = {
+        "min_daily_coverage": {"params": {"weekday_min": 1, "weekend_min": 2}},
+    }
+    result = solve_schedule(_ctx(employees=EMPLOYEES[:2], rules_config=config))
+
+    assert result.status in ("optimal", "feasible")
+    assert "monthly_free_weekend" in result.relaxed_rules
+
+    free_weekend_violations = [
+        v for v in result.violations if v.rule_id == "monthly_free_weekend"
+    ]
+    assert len(free_weekend_violations) == 2
+
+
+def test_solver_relaxes_rule_demoted_to_desirable():
+    """A mandatory rule demoted to desirable with an impossible minimum
+    must produce a schedule instead of failing."""
+    config = {
+        "min_daily_coverage": {
+            "priority": "desirable",
+            "params": {"weekday_min": 10, "weekend_min": 10},
+        },
+    }
+    result = solve_schedule(_ctx(rules_config=config))
+
+    assert result.status in ("optimal", "feasible")
+    assert "min_daily_coverage" in result.relaxed_rules
+
+
+def test_solver_reports_no_relaxed_rules_when_all_satisfiable():
+    result = solve_schedule(_ctx())
+
+    assert result.status in ("optimal", "feasible")
+    assert result.relaxed_rules == []
+
+
+def test_solver_keeps_mandatory_rules_hard():
+    """Mandatory rules must never be silently relaxed — an impossible
+    mandatory rule still means infeasible."""
+    config = {"min_daily_coverage": {"params": {"weekday_min": 10, "weekend_min": 10}}}
+    result = solve_schedule(_ctx(rules_config=config))
+
+    assert result.status == "infeasible"
+
+
+def test_solver_max_weekly_hours_counts_prev_month_context():
+    """Feb 23-27 2026 (Mon-Fri) at 7.5h/day exhausts Ana's 37.5h for the ISO
+    week ending Sunday Mar 1 — the solver must leave Mar 1 free."""
+    prev = [
+        {"date": f"2026-02-{d}", "employee_id": 1, "shift_type_id": 1}
+        for d in ("23", "24", "25", "26", "27")
+    ]
+    result = solve_schedule(_ctx(prev_assignments=prev))
+
+    assert result.status in ("optimal", "feasible")
+    ana_mar1 = next(
+        a for a in result.assignments
+        if a["employee_id"] == 1 and a["date"] == "2026-03-01"
+    )
+    assert ana_mar1["shift_type_id"] is None
+
+    weekly_violations = [
+        v for v in result.violations if v.rule_id == "max_weekly_hours"
+    ]
+    assert weekly_violations == []
+
+
+def test_solver_violations_match_full_context_validation():
+    """Violations reported by the solver must equal what the validate
+    endpoint would report for the same schedule (including prev context)."""
+    from app.services.validator import validate_schedule
+
+    prev = [
+        {"date": f"2026-02-{d}", "employee_id": 1, "shift_type_id": 1}
+        for d in ("23", "24", "25", "26", "27")
+    ]
+    ctx = _ctx(prev_assignments=prev)
+    result = solve_schedule(ctx)
+
+    full_ctx = ScheduleContext(
+        year=ctx.year,
+        month=ctx.month,
+        employees=ctx.employees,
+        shift_types=ctx.shift_types,
+        absences=ctx.absences,
+        assignments=result.assignments,
+        rules_config=ctx.rules_config,
+        prev_assignments=prev,
+    )
+    expected = validate_schedule(full_ctx)
+
+    def keys(violations):
+        return sorted((v.rule_id, v.date, v.employee_id) for v in violations)
+
+    assert keys(result.violations) == keys(expected)
+
+
+def test_solver_min_consecutive_free_days_three():
+    config = {
+        **RELAXED_CONFIG,
+        "min_consecutive_free_days": {"params": {"min_days": 3}},
+    }
+    result = solve_schedule(_ctx(rules_config=config))
+
+    assert result.status in ("optimal", "feasible")
+    free_day_violations = [
+        v for v in result.violations if v.rule_id == "min_consecutive_free_days"
+    ]
+    assert free_day_violations == []
+
+
+def test_solver_fixed_on_absent_day_is_ignored():
+    """A pinned shift on a day the employee is absent must not make the
+    whole model infeasible — the absence wins."""
+    absences = [
+        {"employee_id": 1, "start_date": "2026-03-01", "end_date": "2026-03-05", "type": "vacation"},
+    ]
+    fixed = [{"date": "2026-03-02", "employee_id": 1, "shift_type_id": 1}]
+    result = solve_schedule(_ctx(absences=absences), fixed=fixed)
+
+    assert result.status in ("optimal", "feasible")
+    ana_mar2 = [
+        a for a in result.assignments
+        if a["employee_id"] == 1 and a["date"] == "2026-03-02"
+        and a["shift_type_id"] is not None
+    ]
+    assert ana_mar2 == []
+
+
 def test_solver_respects_multiple_fixed():
     fixed = [
         {"date": "2026-03-01", "employee_id": 1, "shift_type_id": None},

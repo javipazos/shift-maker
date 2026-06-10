@@ -47,6 +47,7 @@ class MaxDailyHours(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
         max_hours = config["params"]["max_hours"]
 
         for st in ctx.shift_types:
@@ -55,7 +56,7 @@ class MaxDailyHours(Rule):
                 for emp_id in v.employee_ids:
                     for date_str in v.dates:
                         if date_str in v.shifts.get(emp_id, {}):
-                            model.Add(v.shifts[emp_id][date_str][st["id"]] == 0)
+                            enforce(model.Add(v.shifts[emp_id][date_str][st["id"]] == 0))
 
 
 class RequestedDaysOff(Rule):

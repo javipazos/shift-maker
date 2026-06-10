@@ -97,6 +97,7 @@ class MinRestBetweenShifts(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
         min_minutes = config["params"]["min_hours"] * 60
         dates = v.context_dates or v.dates
 
@@ -123,11 +124,11 @@ class MinRestBetweenShifts(Rule):
                         rest = (24 * 60 - end_a) + start_b
 
                         if rest < min_minutes:
-                            model.Add(
+                            enforce(model.Add(
                                 v.shifts[emp_id][date_a][sid_a]
                                 + v.shifts[emp_id][date_b][sid_b]
                                 <= 1
-                            )
+                            ))
 
 
 class MinConsecutiveFreeDays(Rule):
@@ -183,29 +184,22 @@ class MinConsecutiveFreeDays(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
-        min_days = config["params"]["min_days"]
-
-        if min_days < 2:
-            return
-
+        enforce = self.make_enforcer(model, v, ctx)
+        min_days = int(config["params"]["min_days"])
         dates = v.context_dates or v.dates
 
+        # A free block of length k < min_days means: work, k free days, work.
+        # Forbid that pattern for every k below the minimum.
         for emp_id in v.employee_ids:
-            for i in range(len(dates) - 2):
-                window = dates[i : i + 3]
-                all_consecutive = all(
-                    _next_date(window[j]) == window[j + 1]
-                    for j in range(len(window) - 1)
-                )
-                if not all_consecutive:
-                    continue
-
-                model.Add(
-                    v.works[emp_id][window[0]]
-                    - v.works[emp_id][window[1]]
-                    + v.works[emp_id][window[2]]
-                    <= 1
-                )
+            for free_block_len in range(1, min_days):
+                for window in _consecutive_windows(dates, free_block_len + 2):
+                    first, *middle, last = window
+                    enforce(model.Add(
+                        v.works[emp_id][first]
+                        - sum(v.works[emp_id][m] for m in middle)
+                        + v.works[emp_id][last]
+                        <= 1
+                    ))
 
 
 class WeeklyRest(Rule):
@@ -261,6 +255,7 @@ class WeeklyRest(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
         min_free = int(config["params"]["min_days"])
         dates = v.context_dates or v.dates
 
@@ -285,7 +280,7 @@ class WeeklyRest(Rule):
                         else:
                             model.Add(free_days[j] == 1)
 
-                    model.Add(sum(free_days) >= min_free)
+                    enforce(model.Add(sum(free_days) >= min_free))
 
 
 class MaxConsecutiveDays(Rule):
@@ -344,22 +339,15 @@ class MaxConsecutiveDays(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
         max_days = config["params"]["max_days"]
         dates = v.context_dates or v.dates
 
         for emp_id in v.employee_ids:
-            for i in range(len(dates) - max_days):
-                window_dates = dates[i : i + max_days + 1]
-
-                all_consecutive = all(
-                    _next_date(window_dates[j]) == window_dates[j + 1]
-                    for j in range(len(window_dates) - 1)
-                )
-
-                if all_consecutive:
-                    model.Add(
-                        sum(v.works[emp_id][d] for d in window_dates) <= max_days
-                    )
+            for window_dates in _consecutive_windows(dates, max_days + 1):
+                enforce(model.Add(
+                    sum(v.works[emp_id][d] for d in window_dates) <= max_days
+                ))
 
 
 class MinDailyCoverage(Rule):
@@ -405,6 +393,7 @@ class MinDailyCoverage(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
 
         for date_str in v.dates:
             is_weekend = _is_weekend(date_str)
@@ -414,10 +403,10 @@ class MinDailyCoverage(Rule):
                 else config["params"]["weekday_min"]
             )
 
-            model.Add(
+            enforce(model.Add(
                 sum(v.works[emp_id][date_str] for emp_id in v.employee_ids)
                 >= min_required
-            )
+            ))
 
 
 class MaxWeeklyHours(Rule):
@@ -462,33 +451,68 @@ class MaxWeeklyHours(Rule):
     def add_constraints(
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
-        weeks = _group_by_week(ctx.year, ctx.month)
+        enforce = self.make_enforcer(model, v, ctx)
         shift_hours = {
             st["id"]: st["effective_hours"] for st in ctx.shift_types
         }
+        weeks = _group_by_week_from_dates(_context_dates(ctx))
 
         for emp in ctx.employees:
-            max_hours = emp["max_hours_per_week"]
-
             for week_dates in weeks.values():
-                # Sum of hours for this employee in this week <= max
-                # Multiply by 10 to use integers (CP-SAT works with ints)
-                hour_terms = []
-                for date_str in week_dates:
-                    if date_str not in v.dates:
-                        continue
-                    for sid in v.shift_type_ids:
-                        if emp["id"] in v.shifts and date_str in v.shifts[emp["id"]]:
-                            hours_x10 = int(shift_hours.get(sid, 0) * 10)
-                            hour_terms.append(
-                                v.shifts[emp["id"]][date_str][sid] * hours_x10
-                            )
+                current_dates = [d for d in week_dates if d in v.dates]
+                if not current_dates:
+                    continue
 
+                prev_x10 = _prev_week_hours_x10(ctx, emp["id"], week_dates)
+                # The past can already exceed the limit (manual edits); clamp
+                # to zero so the model stays feasible and just blocks new work.
+                budget_x10 = max(int(emp["max_hours_per_week"] * 10) - prev_x10, 0)
+
+                emp_shifts = v.shifts.get(emp["id"], {})
+                hour_terms = _hour_terms_x10(emp_shifts, current_dates, shift_hours)
                 if hour_terms:
-                    model.Add(sum(hour_terms) <= int(max_hours * 10))
+                    enforce(model.Add(sum(hour_terms) <= budget_x10))
 
 
 # --- Helper functions ---
+
+
+def _consecutive_windows(dates: list[str], size: int):
+    for i in range(len(dates) - size + 1):
+        window = dates[i : i + size]
+        is_consecutive = all(
+            _next_date(window[j]) == window[j + 1] for j in range(size - 1)
+        )
+        if is_consecutive:
+            yield window
+
+
+def _prev_week_hours_x10(ctx: ScheduleContext, emp_id: int, week_dates: list[str]) -> int:
+    shift_hours = {st["id"]: st["effective_hours"] for st in ctx.shift_types}
+    week_set = set(week_dates)
+    total = 0.0
+
+    for a in ctx.prev_assignments:
+        if a["employee_id"] != emp_id or a["date"] not in week_set:
+            continue
+        if a["shift_type_id"] is None:
+            continue
+        total += shift_hours.get(a["shift_type_id"], 0)
+
+    return int(total * 10)
+
+
+def _hour_terms_x10(
+    emp_shifts: dict[str, dict[int, object]],
+    dates: list[str],
+    shift_hours: dict[int, float],
+) -> list:
+    # CP-SAT only handles integers, so hours are scaled by 10
+    terms = []
+    for date_str in dates:
+        for sid, var in emp_shifts.get(date_str, {}).items():
+            terms.append(var * int(shift_hours.get(sid, 0) * 10))
+    return terms
 
 
 def _all_assignments(ctx: ScheduleContext) -> list[dict]:
@@ -563,11 +587,6 @@ def _available_by_date(ctx: ScheduleContext) -> dict[str, list[int]]:
                     result[d].remove(emp_id)
 
     return result
-
-
-def _group_by_week(year: int, month: int) -> dict[int, list[str]]:
-    """Group dates by ISO week number."""
-    return _group_by_week_from_dates(_all_dates(year, month))
 
 
 def _group_by_week_from_dates(dates: list[str]) -> dict[int, list[str]]:

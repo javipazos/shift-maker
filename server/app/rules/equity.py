@@ -56,6 +56,7 @@ class MonthlyFreeWeekend(Rule):
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
         config = self.get_config(ctx)
+        enforce = self.make_enforcer(model, v, ctx)
         min_free = config["params"]["min_free_weekends"]
         weekends = _get_weekends(ctx.year, ctx.month)
 
@@ -78,8 +79,7 @@ class MonthlyFreeWeekend(Rule):
                     weekend_free_vars.append(free_var)
 
             if weekend_free_vars:
-                # Soft: penalize in objective if not enough free weekends
-                model.Add(sum(weekend_free_vars) >= min_free)
+                enforce(model.Add(sum(weekend_free_vars) >= min_free))
 
 
 class WeekendDistribution(Rule):
@@ -131,6 +131,7 @@ class WeekendDistribution(Rule):
     def add_constraints(
         self, model: cp_model.CpModel, v: SolverVars, ctx: ScheduleContext
     ) -> None:
+        enforce = self.make_enforcer(model, v, ctx)
         weekends = _get_weekends(ctx.year, ctx.month)
 
         weekend_work_counts = {}
@@ -152,21 +153,21 @@ class WeekendDistribution(Rule):
             if weekend_vars:
                 weekend_work_counts[emp_id] = sum(weekend_vars)
 
-        # Hard constraint: no employee works more than 1 extra weekend vs others
+        # No employee works more than 1 extra weekend vs others
         if len(weekend_work_counts) >= 2:
             emp_ids = list(weekend_work_counts.keys())
             for i in range(len(emp_ids)):
                 for j in range(i + 1, len(emp_ids)):
-                    model.Add(
+                    enforce(model.Add(
                         weekend_work_counts[emp_ids[i]]
                         - weekend_work_counts[emp_ids[j]]
                         <= 1
-                    )
-                    model.Add(
+                    ))
+                    enforce(model.Add(
                         weekend_work_counts[emp_ids[j]]
                         - weekend_work_counts[emp_ids[i]]
                         <= 1
-                    )
+                    ))
 
 
 class HoursDistribution(Rule):
